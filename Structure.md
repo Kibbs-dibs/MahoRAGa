@@ -3,7 +3,7 @@
 All Python code generated for Project Aletheia must strictly adhere to this directory structure to ensure absolute import paths work correctly.
 
 ` ` `text
-zero-hallucination-rag/
+MahoRAGa/
 ├── core/
 │   ├── __init__.py
 │   ├── config.py           # Pydantic BaseSettings (API keys, thresholds)

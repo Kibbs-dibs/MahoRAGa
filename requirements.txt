@@ -1,0 +1,11 @@
+pydantic
+pydantic-settings
+neo4j
+faiss-cpu
+rank-bm25
+sentence-transformers
+pymupdf
+gradio
+langchain
+langgraph
+numpy
