@@ -29,6 +29,7 @@ import numpy as np
 
 from core.config import settings
 from core.exceptions import EmbeddingError, VectorStoreError
+from memory.utils import save_metadata, load_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +114,7 @@ class VectorStore:
             ) from exc
 
         try:
-            Path(self._metadata_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(self._metadata_path, "w", encoding="utf-8") as fh:
-                json.dump(self._metadata, fh, ensure_ascii=False)
-            logger.info(
-                "FAISS metadata saved to %s (%d entries)",
-                self._metadata_path,
-                len(self._metadata),
-            )
+            save_metadata(self._metadata_path, self._metadata, "FAISS")
         except Exception as exc:
             raise VectorStoreError(
                 f"Failed to save FAISS metadata to {self._metadata_path}: {exc}"
@@ -153,11 +147,7 @@ class VectorStore:
             ) from exc
 
         try:
-            with open(self._metadata_path, "r", encoding="utf-8") as fh:
-                self._metadata = json.load(fh)
-            logger.info(
-                "FAISS metadata loaded (%d entries)", len(self._metadata)
-            )
+            self._metadata = load_metadata(self._metadata_path, "FAISS")
         except Exception as exc:
             raise VectorStoreError(
                 f"Failed to read FAISS metadata: {exc}"
@@ -289,18 +279,7 @@ class VectorStore:
         k = min(top_k, self._index.ntotal)
         scores, ids = self._index.search(query_vec, k)
 
-        results: List[Dict[str, Any]] = []
-        for rank, (score, idx) in enumerate(
-            zip(scores[0], ids[0]), start=1
-        ):
-            if idx == -1:
-                continue  # padding from FAISS
-            entry = dict(self._metadata[idx])
-            entry["score"] = float(score)
-            entry["rank"] = rank
-            results.append(entry)
-
-        return results
+        return self._parse_faiss_results(scores, ids)
 
     def search_by_vector(
         self,
@@ -319,6 +298,9 @@ class VectorStore:
         k = min(top_k, self._index.ntotal)
         scores, ids = self._index.search(vector.astype(np.float32), k)
 
+        return self._parse_faiss_results(scores, ids)
+
+    def _parse_faiss_results(self, scores: np.ndarray, ids: np.ndarray) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for rank, (score, idx) in enumerate(
             zip(scores[0], ids[0]), start=1

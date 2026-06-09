@@ -29,6 +29,7 @@ from rank_bm25 import BM25Okapi
 
 from core.config import settings
 from core.exceptions import SparseStoreError
+from memory.utils import save_metadata, load_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -128,14 +129,7 @@ class SparseStore:
             ) from exc
 
         try:
-            Path(self._metadata_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(self._metadata_path, "w", encoding="utf-8") as fh:
-                json.dump(self._metadata, fh, ensure_ascii=False)
-            logger.info(
-                "BM25 metadata saved to %s (%d entries)",
-                self._metadata_path,
-                len(self._metadata),
-            )
+            save_metadata(self._metadata_path, self._metadata, "BM25")
         except Exception as exc:
             raise SparseStoreError(
                 f"Failed to save BM25 metadata to {self._metadata_path}: {exc}"
@@ -168,11 +162,7 @@ class SparseStore:
             ) from exc
 
         try:
-            with open(self._metadata_path, "r", encoding="utf-8") as fh:
-                self._metadata = json.load(fh)
-            logger.info(
-                "BM25 metadata loaded (%d entries)", len(self._metadata)
-            )
+            self._metadata = load_metadata(self._metadata_path, "BM25")
         except Exception as exc:
             raise SparseStoreError(
                 f"Failed to read BM25 metadata: {exc}"
