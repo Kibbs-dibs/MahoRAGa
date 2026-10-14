@@ -38,57 +38,53 @@ logger = logging.getLogger("ui.app")
 # ═══════════════════════════════════════════════════════════════════════════
 
 CUSTOM_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
     --cr-orange: #FF570A;
-    --cr-orange-hover: #FF702E;
-    --cr-orange-glow: rgba(255, 87, 10, 0.35);
-    --cr-orange-subtle: rgba(255, 87, 10, 0.12);
+    --cr-orange-hover: #FF6824;
+    --cr-orange-subtle: rgba(255, 87, 10, 0.10);
     --cr-mint: #00F2A5;
-    --cr-mint-subtle: rgba(0, 242, 165, 0.12);
+    --cr-mint-subtle: rgba(0, 242, 165, 0.10);
     --cr-cobalt: #3B82F6;
-    --cr-cobalt-subtle: rgba(59, 130, 246, 0.12);
-    --cr-amber: #FBBF24;
-    --cr-amber-subtle: rgba(251, 191, 36, 0.12);
-    --cr-rose: #F43F5E;
-    --cr-canvas: #0b0d14;
-    --cr-card: #131622;
-    --cr-card-alt: #1a1e2e;
-    --cr-card-hover: #1e2235;
-    --cr-border: rgba(255, 255, 255, 0.08);
+    --cr-cobalt-subtle: rgba(59, 130, 246, 0.10);
+    --cr-canvas: #090a0f;
+    --cr-card: #10121a;
+    --cr-card-alt: #151822;
+    --cr-card-hover: #191c28;
+    --cr-border: rgba(255, 255, 255, 0.07);
     --cr-border-subtle: rgba(255, 255, 255, 0.04);
-    --cr-text-primary: #F3F4F6;
-    --cr-text-secondary: #A6ADBF;
-    --cr-text-muted: #8A92AB;
+    --cr-text-primary: #F8FAFC;
+    --cr-text-secondary: #94A3B8;
+    --cr-text-muted: #64748B;
+    --cr-mono: 'JetBrains Mono', monospace;
 }
 
 body, .gradio-container {
-    background: radial-gradient(circle at 10% 10%, rgba(255, 87, 10, 0.04) 0%, transparent 40%),
-                radial-gradient(circle at 90% 90%, rgba(0, 242, 165, 0.03) 0%, transparent 40%),
-                var(--cr-canvas) !important;
+    background: #090a0f !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     color: var(--cr-text-primary) !important;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.011em;
 }
 
 h1, h2, h3, h4, .cr-font-brand {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     letter-spacing: -0.025em;
+    font-weight: 700;
 }
 
 code, pre, .cr-mono {
-    font-family: 'JetBrains Mono', monospace !important;
+    font-family: var(--cr-mono) !important;
 }
 
-/* ── CodeRabbit Header Card ─────────────────────────────────────────────── */
+/* ── Console Header Card ─────────────────────────────────────────────────── */
 .cr-header-card {
-    background: linear-gradient(180deg, #161928 0%, #111420 100%) !important;
-    border: 1px solid rgba(255, 87, 10, 0.25) !important;
-    border-radius: 16px !important;
-    padding: 20px 24px !important;
-    margin-bottom: 18px !important;
-    box-shadow: 0 8px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px -5px rgba(255, 87, 10, 0.15) !important;
+    background: #10121a !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 12px !important;
+    padding: 16px 22px !important;
+    margin-bottom: 14px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
 }
 
 .cr-logo-wrap {
@@ -97,313 +93,333 @@ code, pre, .cr-mono {
     gap: 14px;
 }
 
-.cr-rabbit-icon {
-    width: 42px;
-    height: 42px;
-    background: linear-gradient(135deg, #FF570A 0%, #FF782E 100%);
-    border-radius: 12px;
+.cr-brand-glyph {
+    width: 38px;
+    height: 38px;
+    background: #161924;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 16px var(--cr-orange-glow);
+    color: #F8FAFC;
     flex-shrink: 0;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    transition: all 0.2s ease;
 }
 
-.cr-rabbit-icon:hover {
-    transform: scale(1.08) rotate(-2deg);
-    box-shadow: 0 0 24px rgba(255, 87, 10, 0.6) !important;
+.cr-brand-glyph:hover {
+    border-color: rgba(255, 87, 10, 0.45);
+    background: #191d2a;
 }
 
 .cr-brand-title {
-    font-size: 1.6rem !important;
-    font-weight: 800 !important;
-    color: #ffffff;
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    color: #FFFFFF;
     display: flex;
     align-items: center;
     gap: 10px;
+    letter-spacing: -0.02em;
     line-height: 1.2;
 }
 
-.cr-brand-accent {
-    color: var(--cr-orange);
+.cr-title-sub {
+    font-size: 0.80rem;
+    font-weight: 500;
+    color: var(--cr-text-muted);
+    letter-spacing: 0.06em;
+    font-family: var(--cr-mono);
 }
 
-.cr-badge-pill {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 20px;
-    text-transform: uppercase;
+.cr-version-pill {
+    font-size: 0.68rem;
+    font-family: var(--cr-mono);
+    font-weight: 600;
     letter-spacing: 0.05em;
-}
-
-.cr-badge-orange {
-    background: rgba(255, 87, 10, 0.14) !important;
-    border: 1px solid rgba(255, 87, 10, 0.4) !important;
-    color: #FFA066 !important;
-}
-
-.cr-badge-mint {
-    background: rgba(0, 242, 165, 0.12) !important;
-    border: 1px solid rgba(0, 242, 165, 0.4) !important;
-    color: #4EFEB3 !important;
-}
-
-.cr-badge-cobalt {
-    background: var(--cr-cobalt-subtle);
-    border: 1px solid rgba(59, 130, 246, 0.35);
-    color: #70A5FF !important;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--cr-border);
+    color: var(--cr-text-secondary);
 }
 
 .cr-header-desc {
     color: var(--cr-text-secondary);
-    font-size: 0.88rem;
+    font-size: 0.80rem;
     margin-top: 4px;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
 }
 
 .cr-meta-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
     justify-content: flex-end;
 }
 
 .cr-meta-item {
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     font-weight: 500;
     color: var(--cr-text-secondary);
-    background: rgba(255, 255, 255, 0.03);
+    background: #12141c;
     border: 1px solid var(--cr-border);
-    padding: 5px 11px;
-    border-radius: 8px;
+    padding: 4px 10px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
 .cr-pulse-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     background: var(--cr-mint);
     border-radius: 50%;
-    box-shadow: 0 0 8px var(--cr-mint);
-    animation: cr-pulse 2s infinite;
+    box-shadow: 0 0 6px rgba(0, 242, 165, 0.4);
 }
 
-@keyframes cr-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
+/* ── Badge Pills ────────────────────────────────────────────────────────── */
+.cr-badge-pill {
+    font-size: 0.70rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
 }
 
-/* ── CodeRabbit Checkpoints / Pipeline Stepper ──────────────────────────── */
+.cr-badge-orange {
+    background: rgba(255, 87, 10, 0.10) !important;
+    border: 1px solid rgba(255, 87, 10, 0.30) !important;
+    color: #FFA066 !important;
+}
+
+.cr-badge-mint {
+    background: rgba(0, 242, 165, 0.08) !important;
+    border: 1px solid rgba(0, 242, 165, 0.25) !important;
+    color: #4EFEB3 !important;
+}
+
+.cr-badge-subtle {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid var(--cr-border) !important;
+    color: var(--cr-text-muted) !important;
+}
+
+/* ── Pipeline Stepper ───────────────────────────────────────────────────── */
 .stepper-container, .cr-stepper-box {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
     justify-content: space-between;
-    background: #111420;
+    background: #10121a;
     border: 1px solid var(--cr-border);
-    border-radius: 12px;
-    padding: 10px 16px;
-    margin-bottom: 16px;
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 14px;
 }
 
 .step-node {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 13px;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
     border: 1px solid transparent;
 }
 
+.step-idx {
+    font-family: var(--cr-mono);
+    font-size: 0.70rem;
+    font-weight: 600;
+    opacity: 0.65;
+}
+
+.step-title {
+    font-weight: 500;
+}
+
+.step-badge {
+    font-size: 0.68rem;
+    font-family: var(--cr-mono);
+    opacity: 0.85;
+    margin-left: 2px;
+}
+
 .step-pending {
-    background: rgba(255, 255, 255, 0.02);
+    background: transparent;
     color: var(--cr-text-muted);
-    border-color: var(--cr-border-subtle);
 }
 
 .step-active {
-    background: rgba(255, 87, 10, 0.12);
-    color: #FFA573;
-    border-color: var(--cr-orange);
-    box-shadow: 0 0 16px var(--cr-orange-glow);
-    animation: cr-active-pulse 2s infinite ease-in-out;
+    background: rgba(255, 87, 10, 0.10);
+    color: #FFA066;
+    border-color: rgba(255, 87, 10, 0.35);
+    font-weight: 600;
 }
 
 .step-done {
-    background: var(--cr-mint-subtle);
-    color: var(--cr-mint);
-    border-color: rgba(0, 242, 165, 0.4);
+    background: rgba(0, 242, 165, 0.06);
+    color: #00F2A5;
+    border-color: rgba(0, 242, 165, 0.20);
 }
 
-@keyframes cr-active-pulse {
-    0%, 100% { box-shadow: 0 0 12px rgba(255, 87, 10, 0.2); }
-    50% { box-shadow: 0 0 22px rgba(255, 87, 10, 0.5); }
+.cr-stepper-status {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--cr-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* ── CodeRabbit Metrics Scorecard ───────────────────────────────────────── */
+.cr-timer-pill {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--cr-border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: var(--cr-mono);
+    font-size: 0.72rem;
+    color: var(--cr-text-secondary);
+}
+
+/* ── Metrics Scorecard ──────────────────────────────────────────────────── */
 .metrics-grid, .cr-scorecard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
-    gap: 10px;
-    margin: 10px 0 16px 0;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+    margin: 8px 0 14px 0;
 }
 
 .metric-card, .cr-score-card {
-    background: #131622;
+    background: #10121a;
     border: 1px solid var(--cr-border);
-    border-radius: 10px;
-    padding: 12px;
-    text-align: center;
-    transition: all 0.2s ease;
-    position: relative;
-    overflow: hidden;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: left;
+    transition: border-color 0.2s ease;
 }
 
 .metric-card:hover, .cr-score-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 87, 10, 0.4);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 
 .metric-value, .cr-score-val {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.22rem;
+    font-weight: 700;
     color: var(--cr-text-primary);
+    letter-spacing: -0.02em;
 }
 
 .metric-label, .cr-score-lbl {
     font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--cr-text-secondary);
+    font-weight: 500;
+    color: var(--cr-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 4px;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
 }
 
-/* ── Chatbot & Developer Cards ──────────────────────────────────────────── */
+/* ── Chatbot & Message Canvas ───────────────────────────────────────────── */
 .gradio-chatbot, #aletheia-chatbot {
-    background: #111420 !important;
+    background: #0d0f15 !important;
     border: 1px solid var(--cr-border) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* CodeRabbit Orange Primary Button */
+/* Primary Button: Refined Matte Ember */
 .gr-button-primary, button.primary {
-    background: linear-gradient(135deg, #FF570A 0%, #FF782E 100%) !important;
-    border: none !important;
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    background: #FF570A !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 16px var(--cr-orange-glow) !important;
-    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 12px rgba(255, 87, 10, 0.2) !important;
+    transition: all 0.18s ease !important;
 }
 
 .gr-button-primary:hover, button.primary:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 22px rgba(255, 87, 10, 0.5) !important;
-    background: linear-gradient(135deg, #FF661F 0%, #FF853D 100%) !important;
+    background: #FF6824 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 6px 18px rgba(255, 87, 10, 0.3) !important;
+    transform: translateY(-1px) !important;
 }
 
-/* Secondary Button */
+.gr-button-primary:active, button.primary:active {
+    transform: scale(0.99) !important;
+}
+
+/* Secondary Button: Subtle Surface */
 .gr-button-secondary {
-    background: rgba(255, 255, 255, 0.04) !important;
+    background: #141722 !important;
     border: 1px solid var(--cr-border) !important;
     color: var(--cr-text-secondary) !important;
+    font-size: 0.82rem !important;
     border-radius: 8px !important;
+    transition: all 0.15s ease !important;
 }
 
 .gr-button-secondary:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
+    background: #191c28 !important;
+    color: var(--cr-text-primary) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ── Workspace Segmented Tabs ───────────────────────────────────────────── */
+#workspace-tabs > .tab-nav {
+    background: #10121a !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 8px !important;
+    padding: 3px !important;
+    gap: 3px !important;
+    margin-bottom: 12px !important;
+}
+
+#workspace-tabs > .tab-nav button {
+    border-radius: 6px !important;
+    padding: 6px 14px !important;
+    font-size: 0.80rem !important;
+    font-weight: 500 !important;
+    color: var(--cr-text-secondary) !important;
+    border: 1px solid transparent !important;
+    transition: all 0.15s ease !important;
+}
+
+#workspace-tabs > .tab-nav button:hover {
+    background: rgba(255, 255, 255, 0.03) !important;
     color: var(--cr-text-primary) !important;
 }
 
-/* Accordion & Tabs */
-.tab-nav button.selected {
-    color: var(--cr-orange) !important;
-    border-bottom: 2px solid var(--cr-orange) !important;
-    font-weight: 700 !important;
+#workspace-tabs > .tab-nav button.selected {
+    background: #161924 !important;
+    color: #F8FAFC !important;
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
 }
 
-.label-title, .gr-panel {
-    color: var(--cr-text-secondary) !important;
-    font-weight: 600 !important;
-}
-
-/* CodeRabbit Callout Box */
-.cr-callout {
-    border-radius: 8px;
-    padding: 10px 14px;
-    margin: 8px 0;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    border-left: 3px solid;
-}
-
-.cr-callout-success {
-    background: var(--cr-mint-subtle);
-    border-color: var(--cr-mint);
-    color: #B4F8E2;
-}
-
-.cr-callout-info {
-    background: var(--cr-orange-subtle);
-    border-color: var(--cr-orange);
-    color: #FFD2BC;
-}
-
-.cr-diff-line-add {
-    background: rgba(0, 242, 165, 0.08);
-    color: #00F2A5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem;
-}
-
-.cr-diff-line-tag {
-    background: rgba(255, 87, 10, 0.1);
-    color: #FF945C;
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
-    border: 1px solid rgba(255, 87, 10, 0.25);
-}
-
-/* ── Ingestion Dock & Document Catalog ──────────────────────────────────── */
-.cr-ingest-dock {
-    background: #111420 !important;
-    border: 1px solid rgba(255, 87, 10, 0.25) !important;
-    border-radius: 12px !important;
-    margin-bottom: 16px !important;
-}
-
+/* ── Document List & Cards ──────────────────────────────────────────────── */
 .cr-doc-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     max-height: 220px;
     overflow-y: auto;
-    margin-top: 10px;
+    margin-top: 8px;
     padding-right: 4px;
 }
 
 .cr-doc-card {
-    background: #161928;
+    background: #131620;
     border: 1px solid var(--cr-border);
-    border-radius: 8px;
-    padding: 9px 12px;
+    border-radius: 6px;
+    padding: 8px 11px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -411,19 +427,19 @@ code, pre, .cr-mono {
 }
 
 .cr-doc-card:hover {
-    border-color: rgba(255, 87, 10, 0.4);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .cr-doc-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     width: 100%;
     min-width: 0 !important;
 }
 
 .cr-doc-title {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--cr-text-primary);
     white-space: nowrap;
@@ -435,68 +451,36 @@ code, pre, .cr-mono {
 .cr-doc-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
 }
 
-/* ── Workspace Tabs Layout ─────────────────────────────────────────────── */
-#workspace-tabs > .tab-nav {
-    background: #111420 !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 10px !important;
-    padding: 5px !important;
-    gap: 6px !important;
-    margin-bottom: 12px !important;
-}
-
-#workspace-tabs > .tab-nav button {
-    border-radius: 8px !important;
-    padding: 7px 12px !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    color: var(--cr-text-secondary) !important;
-    border: 1px solid transparent !important;
-    transition: all 0.2s ease !important;
-}
-
-#workspace-tabs > .tab-nav button:hover {
-    background: rgba(255, 255, 255, 0.04) !important;
-    color: var(--cr-text-primary) !important;
-}
-
-#workspace-tabs > .tab-nav button.selected {
-    background: rgba(255, 87, 10, 0.12) !important;
-    color: #FFA066 !important;
-    border-color: rgba(255, 87, 10, 0.35) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-}
-
 .cr-doc-empty {
-    font-size: 0.82rem;
+    font-size: 0.80rem;
     color: var(--cr-text-muted);
     padding: 12px;
     text-align: center;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.01);
+    border-radius: 6px;
     border: 1px dashed var(--cr-border);
 }
 
 .cr-status-box {
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 7px 11px;
+    border-radius: 6px;
     margin: 8px 0;
-    font-size: 0.82rem;
+    font-size: 0.80rem;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
 .cr-subhead {
-    font-size: 0.78rem;
-    font-weight: 700;
+    font-size: 0.72rem;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--cr-text-secondary);
+    letter-spacing: 0.05em;
+    color: var(--cr-text-muted);
     margin-top: 10px;
     margin-bottom: 4px;
 }
@@ -507,12 +491,12 @@ code, pre, .cr-mono {
 # ═══════════════════════════════════════════════════════════════════════════
 
 ALL_STAGES = [
-    ("router", "1. Router", "🧭"),
-    ("retriever", "2. Retriever", "⚡"),
-    ("evaluator", "3. Evaluator", "⚖️"),
-    ("search_apis", "4. Search APIs", "🌐"),
-    ("pruner", "5. Pruner (AttnRAG)", "✂️"),
-    ("generator", "6. Generator & Critic", "✨"),
+    ("router", "1. Router", "01"),
+    ("retriever", "2. Retriever", "02"),
+    ("evaluator", "3. Evaluator", "03"),
+    ("search_apis", "4. Search APIs", "04"),
+    ("pruner", "5. Pruner (AttnRAG)", "05"),
+    ("generator", "6. Generator & Critic", "06"),
 ]
 
 
@@ -539,14 +523,14 @@ def render_stepper_html(
     elapsed_time: float = 0.0,
     status_label: str = "Ready",
 ) -> str:
-    """Render CodeRabbit-styled automated review checkpoints timeline."""
+    """Render precision automated review checkpoints timeline."""
     completed = set(completed_nodes or [])
 
     nodes_html = []
     for node_id, label, icon in ALL_STAGES:
         if node_id == active_node:
             state_cls = "step-active"
-            badge = "• Reviewing"
+            badge = "active"
         elif node_id in completed:
             state_cls = "step-done"
             badge = "✓"
@@ -555,21 +539,21 @@ def render_stepper_html(
             badge = ""
 
         badge_span = (
-            f"<span style='font-size:0.7rem; opacity:0.85; margin-left:2px;'>{badge}</span>"
+            f"<span class='step-badge'>{badge}</span>"
             if badge
             else ""
         )
         nodes_html.append(
             f"<div class='step-node {state_cls}'>"
-            f"<span>{icon}</span> <span>{label}</span> {badge_span}"
+            f"<span class='step-idx'>{icon}</span> <span class='step-title'>{label}</span> {badge_span}"
             f"</div>"
         )
 
     timer_text = f"{elapsed_time:.1f}s" if elapsed_time > 0 else "0.0s"
     status_badge = (
-        f"<div style='font-size:0.78rem; font-weight:600; color:#FF8A4C; display:flex; align-items:center; gap:8px;'>"
+        f"<div class='cr-stepper-status'>"
         f"<span>Status: {html.escape(status_label)}</span>"
-        f"<span style='background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; color:#8E95AA;'>⏱ {timer_text}</span>"
+        f"<span class='cr-timer-pill'>{timer_text}</span>"
         f"</div>"
     )
 
@@ -584,16 +568,16 @@ def render_stepper_html(
 
 
 def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
-    """Render CodeRabbit review scorecard cards: Rubric Score, AttentionRAG Compression, Latency, Critic."""
+    """Render scientific review scorecard cards: Rubric Score, AttentionRAG Compression, Latency, Critic."""
     s = _ensure_state(state)
     if not s:
         return (
             "<div class='metrics-grid cr-scorecard-grid'>"
-            "<div class='metric-card'><div class='metric-value' style='color:#646B82;'>--</div><div class='metric-label'>Evidence Rubric</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#646B82;'>--</div><div class='metric-label'>Compression Ratio</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#8E95AA;'>0.0s</div><div class='metric-label'>Latency</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#646B82;'>--</div><div class='metric-label'>The Critic QA</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#8E95AA;'>$0.00</div><div class='metric-label'>Est. Cost</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Evidence Rubric</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Compression Ratio</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>0.0s</div><div class='metric-label'>Latency</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>The Critic QA</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Est. Cost</div></div>"
             "</div>"
         )
 
@@ -612,13 +596,13 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
     # 4. Critic Verdict
     feedback = s.generation.critic_feedback if s.generation else None
     if not feedback or "approved" in feedback.lower():
-        critic_icon = "✅ Approved"
+        critic_icon = "Approved"
         critic_color = "#00F2A5"
     elif "regenerate" in feedback.lower() or "retry" in feedback.lower():
-        critic_icon = "⚠️ Regenerated"
+        critic_icon = "Regenerated"
         critic_color = "#FBBF24"
     else:
-        critic_icon = "✅ Passed"
+        critic_icon = "Passed"
         critic_color = "#00F2A5"
 
     # 5. Cost
@@ -630,7 +614,7 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
         f"<div class='metric-card'><div class='metric-value' style='color:#FF570A;'>{comp_text}</div><div class='metric-label'>Compression Ratio</div></div>"
         f"<div class='metric-card'><div class='metric-value' style='color:#3B82F6;'>{latency_text}</div><div class='metric-label'>Latency</div></div>"
         f"<div class='metric-card'><div class='metric-value' style='font-size:1.15rem; color:{critic_color};'>{critic_icon}</div><div class='metric-label'>The Critic QA</div></div>"
-        f"<div class='metric-card'><div class='metric-value' style='color:#8E95AA;'>{cost_text}</div><div class='metric-label'>Token Cost</div></div>"
+        f"<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>{cost_text}</div><div class='metric-label'>Token Cost</div></div>"
         f"</div>"
     )
 
@@ -650,9 +634,12 @@ def format_neo4j_markdown(state: Any) -> str:
     nodes, edges = parse_triples_to_graph(triples)
     canvas_html = generate_interactive_graph_html(nodes, edges, height_px=380)
 
-    items = [canvas_html, "\n<div style='margin-top:12px; font-weight:600; color:#FF570A;'>🏷️ Active Knowledge Graph Triples:</div>"]
+    items = [
+        canvas_html,
+        "\n<div style='margin-top:14px; font-size:0.80rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--cr-orange);'>Active Knowledge Graph Triples</div>"
+    ]
     for i, triple in enumerate(triples[:15], 1):
-        items.append(f"- 🏷️ `triple:{i:02d}` **{triple}**")
+        items.append(f"- `triple:{i:02d}` **{triple}**")
     return "\n".join(items)
 
 
@@ -702,7 +689,7 @@ def format_external_markdown(state: Any) -> str:
 
 
 def render_header_meta_html(catalog: Dict[str, Any] | None = None) -> str:
-    """Render CodeRabbit top meta bar with real-time ingested paper counts."""
+    """Render precision telemetry bar with real-time ingested paper counts."""
     if catalog is None:
         try:
             catalog = ingestion_service.get_catalog()
@@ -713,8 +700,8 @@ def render_header_meta_html(catalog: Dict[str, Any] | None = None) -> str:
     return (
         f"<div class='cr-meta-bar'>"
         f"<div class='cr-meta-item'><span class='cr-pulse-dot'></span> <span>{doc_count} Papers Ingested ({chunk_count} Chunks)</span></div>"
-        f"<div class='cr-meta-item'><span>📁 Kibbs-dibs/MahoRAGa @ main</span></div>"
-        f"<div class='cr-badge-pill cr-badge-orange'>PR #1: Research Assistant</div>"
+        f"<div class='cr-meta-item'><span class='cr-mono' style='font-size:0.72rem;'>Kibbs-dibs/MahoRAGa:main</span></div>"
+        f"<div class='cr-version-pill'>v1.0.0</div>"
         f"</div>"
     )
 
@@ -724,7 +711,7 @@ def render_ingest_status_html(res: Dict[str, Any] | None = None) -> str:
     if res is None:
         return (
             "<div class='cr-status-box' style='background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);'>"
-            "<span style='color:#9499AD;'>Ready to ingest academic literature. Drag & drop PDF files above.</span>"
+            "<span style='color:#94A3B8;'>Ready to ingest academic literature. Select or drop PDF files above.</span>"
             "</div>"
         )
 
@@ -744,32 +731,32 @@ def render_ingest_status_html(res: Dict[str, Any] | None = None) -> str:
                 "&nbsp;<span class='cr-badge-pill cr-badge-mint'>✓ Neo4j Graph Synced</span>"
             )
         return (
-            f"<div class='cr-status-box' style='background:rgba(0,242,165,0.08); border:1px solid rgba(0,242,165,0.3); color:#00F2A5;'>"
+            f"<div class='cr-status-box' style='background:rgba(0,242,165,0.06); border:1px solid rgba(0,242,165,0.25); color:#00F2A5;'>"
             f"<span>✅ {msg}</span>{neo4j_badge}"
             f"</div>"
         )
     elif status == "wiped":
         return (
-            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.3); color:#FBBF24;'>"
+            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.25); color:#FBBF24;'>"
             f"<span>🗑️ {msg}</span>"
             f"</div>"
         )
     elif status in ("skipped", "no_files"):
         return (
-            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.3); color:#FBBF24;'>"
+            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.25); color:#FBBF24;'>"
             f"<span>⚠️ {msg}</span>"
             f"</div>"
         )
     else:
         return (
-            f"<div class='cr-status-box' style='background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.3); color:#F43F5E;'>"
+            f"<div class='cr-status-box' style='background:rgba(244,63,94,0.06); border:1px solid rgba(244,63,94,0.25); color:#F43F5E;'>"
             f"<span>❌ {msg}</span>"
             f"</div>"
         )
 
 
 def render_catalog_html(catalog: Dict[str, Any] | None = None) -> str:
-    """Render interactive catalog list of ingested documents."""
+    """Render structured catalog list of ingested documents."""
     if catalog is None:
         try:
             catalog = ingestion_service.get_catalog()
@@ -789,11 +776,11 @@ def render_catalog_html(catalog: Dict[str, Any] | None = None) -> str:
         items.append(
             f"<div class='cr-doc-card'>"
             f"<div class='cr-doc-info'>"
-            f"<div class='cr-doc-title' title='{title}'>📄 {title}</div>"
+            f"<div class='cr-doc-title' title='{title}'>{title}</div>"
             f"<div class='cr-doc-meta'>"
             f"<span class='cr-badge-pill cr-badge-orange'>{chunks} Chunks</span>"
             f"<span class='cr-badge-pill cr-badge-mint'>{pages} Pages</span>"
-            f"<span class='cr-badge-pill' style='background:rgba(255,255,255,0.04); color:#9499AD;'>📅 {ts}</span>"
+            f"<span class='cr-badge-pill cr-badge-subtle'>{ts}</span>"
             f"</div>"
             f"</div>"
             f"</div>"
@@ -812,15 +799,15 @@ def format_coderabbit_review_response(
     critic_verdict: str,
     latency: float,
 ) -> str:
-    """Wrap synthesized answer into CodeRabbit's iconic structured PR review format."""
-    status_icon = "✅" if evidence_score >= 80 else "⚠️"
-    rubric_badge = f"`Evidence Score: {evidence_score}/100`"
-    attn_badge = f"`AttentionRAG: {compression_ratio:.1f}x pruned`"
-    critic_badge = f"`The Critic: {critic_verdict}`"
+    """Wrap synthesized answer into structured scientific review format."""
+    status_icon = "Verified" if evidence_score >= 80 else "Caution"
+    rubric_badge = f"`Evidence Rubric: {evidence_score}/100`"
+    attn_badge = f"`AttentionRAG: {compression_ratio:.1f}x`"
+    critic_badge = f"`Critic: {critic_verdict}`"
 
     header_block = (
-        f"### 🐇 CodeRabbit Review: AI Literature Analysis\n\n"
-        f"> **Assessment:** {status_icon} **{critic_verdict}** &nbsp;•&nbsp; {rubric_badge} &nbsp;•&nbsp; {attn_badge} &nbsp;•&nbsp; `Latency: {latency:.1f}s`\n\n"
+        f"### Research Synthesis & Verification\n\n"
+        f"> **Assessment:** **{status_icon}** ({critic_verdict}) &nbsp;&bull;&nbsp; {rubric_badge} &nbsp;&bull;&nbsp; {attn_badge} &nbsp;&bull;&nbsp; `Latency: {latency:.1f}s`\n\n"
     )
 
     return header_block + raw_answer
@@ -852,11 +839,11 @@ def stream_query_pipeline(
     start_time = time.time()
     completed_nodes: List[str] = []
 
-    # Initialize conversation message in CodeRabbit format
+    # Initialize conversation message in precision scientific format
     user_msg = {"role": "user", "content": clean_query}
     assistant_msg = {
         "role": "assistant",
-        "content": "🐇 *CodeRabbit is reviewing literature against Three-Layer Global Memory...*",
+        "content": "*Synthesizing evidence across Three-Layer Global Memory...*",
     }
     current_history = history + [user_msg, assistant_msg]
 
@@ -882,14 +869,14 @@ def stream_query_pipeline(
 
     latest_state = initial_state
 
-    # Stage descriptions with CodeRabbit review persona
+    # Stage descriptions for real-time trace
     stage_messages = {
-        "router": "🧭 *Classifying query intent and canonical domain terms...*",
-        "retriever": "⚡ *Retrieving passages from Three-Layer Global Memory (Neo4j, FAISS, BM25)...*",
-        "evaluator": "⚖️ *Evaluating 100-point evidence sufficiency rubric...*",
-        "search_apis": "🌐 *Querying external literature fallback (Crossref, Semantic Scholar, arXiv)...*",
-        "pruner": "✂️ *Compressing context micro-windows via AttentionRAG...*",
-        "generator": "✨ *Drafting cited synthesis and executing The Critic QA audit...*",
+        "router": "*Classifying query intent and canonical domain terms...*",
+        "retriever": "*Retrieving passages from Three-Layer Global Memory (Neo4j, FAISS, BM25)...*",
+        "evaluator": "*Evaluating 100-point evidence sufficiency rubric...*",
+        "search_apis": "*Querying external literature fallback (Crossref, Semantic Scholar, arXiv)...*",
+        "pruner": "*Compressing context micro-windows via AttentionRAG...*",
+        "generator": "*Drafting cited synthesis and executing The Critic QA audit...*",
     }
 
     try:
@@ -940,7 +927,7 @@ def stream_query_pipeline(
                     render_metrics_html(latest_state, elapsed),
                 )
 
-        # Final completion yield formatted with CodeRabbit review summary
+        # Final completion yield formatted with scientific review summary
         total_time = time.time() - start_time
         raw_answer = (latest_state.generation.draft_answer if latest_state.generation else "") or "Research synthesis complete."
 
@@ -969,7 +956,7 @@ def stream_query_pipeline(
                 "",
                 completed_nodes,
                 total_time,
-                f"Review Complete in {total_time:.1f}s",
+                f"Completed in {total_time:.1f}s",
             ),
             format_neo4j_markdown(latest_state),
             format_faiss_markdown(latest_state),
@@ -980,7 +967,7 @@ def stream_query_pipeline(
 
     except Exception as exc:
         logger.error("Pipeline streaming failure: %s", exc, exc_info=True)
-        error_msg = f"⚠️ **Review Pipeline Interrupted:** `{html.escape(str(exc))}`\n\n*Graceful degradation active: Inspect system logs for diagnostics.*"
+        error_msg = f"**Review Pipeline Interrupted:** `{html.escape(str(exc))}`\n\n*Graceful degradation active: Inspect system logs for diagnostics.*"
         current_history[-1]["content"] = error_msg
         total_time = time.time() - start_time
         yield (
@@ -996,39 +983,35 @@ def stream_query_pipeline(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Gradio UI Layout Construction (CodeRabbit Visual Language)
+#  Gradio UI Layout Construction (Precision Research Console)
 # ═══════════════════════════════════════════════════════════════════════════
 
 def create_ui() -> gr.Blocks:
-    """Construct the CodeRabbit-styled web app for Project Aletheia."""
+    """Construct the precision research console web app for Project Aletheia."""
 
     with gr.Blocks(title="Project Aletheia — Autonomous AI Research") as demo:
-        # Injected Custom CodeRabbit Design System CSS
+        # Injected Custom Design System CSS
         gr.HTML(f"<style>{CUSTOM_CSS}</style>")
 
-        # ── Header: CodeRabbit AI Reviewer Banner ─────────────────────────────
+        # ── Header: Research Console Telemetry & Brandmark ────────────────────
         with gr.Row(elem_classes=["cr-header-card"]):
             with gr.Column(scale=8):
                 gr.HTML(
                     """
                     <div class="cr-logo-wrap">
-                        <div class="cr-rabbit-icon">
-                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2C8 2 6 5.5 6 9.5c0 2.8 1.4 5 2.8 6.5L6.5 22h11l-2.3-6c1.4-1.5 2.8-3.7 2.8-6.5C18 5.5 16 2 12 2z" fill="#ffffff"/>
-                                <circle cx="9.5" cy="9" r="1.3" fill="#FF570A"/>
-                                <circle cx="14.5" cy="9" r="1.3" fill="#FF570A"/>
-                                <path d="M10.8 12.2c.7.5 1.7.5 2.4 0" stroke="#FF570A" stroke-width="1.2" stroke-linecap="round"/>
-                                <path d="M7 3L5 1M17 3l2-2" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+                        <div class="cr-brand-glyph">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M3 12h3M18 12h3M12 3v3M12 18v3"/>
+                                <circle cx="12" cy="12" r="9" stroke-opacity="0.35"/>
                             </svg>
                         </div>
                         <div>
                             <div class="cr-brand-title">
-                                CodeRabbit <span class="cr-brand-accent">Aletheia</span>
-                                <span class="cr-badge-pill cr-badge-orange">AI Reviewer</span>
-                                <span class="cr-badge-pill cr-badge-mint">Verified</span>
+                                ALETHEIA <span class="cr-title-sub">// AI RESEARCH CONSOLE</span>
                             </div>
                             <div class="cr-header-desc">
-                                Autonomous Multi-Agent Literature Reviewer • Three-Layer Global Memory • AttentionRAG 6.3x Pruning • The Critic QA
+                                Autonomous Multi-Agent Literature Intelligence &bull; Three-Layer Global Memory &bull; AttentionRAG 6.3x Pruning &bull; Deterministic Critic QA
                             </div>
                         </div>
                     </div>
@@ -1040,18 +1023,18 @@ def create_ui() -> gr.Blocks:
                     elem_id="cr-header-meta",
                 )
 
-        # ── CodeRabbit Automated Checks / Stepper ─────────────────────────────
+        # ── Checkpoints Stepper ──────────────────────────────────────────────
         status_stepper = gr.HTML(
-            value=render_stepper_html(status_label="CodeRabbit Ready"),
+            value=render_stepper_html(status_label="System Ready"),
             elem_id="pipeline-stepper",
         )
 
-        # ── Main Developer Workspace (2-Column Review Layout) ─────────────────
+        # ── Main Research Workspace (2-Column Review Layout) ─────────────────
         with gr.Row():
-            # Left Column: Code Review Stream & Query Input
+            # Left Column: Synthesis Stream & Query Input
             with gr.Column(scale=7):
                 chatbot = gr.Chatbot(
-                    label="CodeRabbit Review Stream & Synthesis",
+                    label="Synthesis Stream & Verification Trace",
                     height=530,
                     elem_id="aletheia-chatbot",
                     layout="bubble",
@@ -1059,18 +1042,18 @@ def create_ui() -> gr.Blocks:
 
                 with gr.Row():
                     query_input = gr.Textbox(
-                        placeholder="Ask CodeRabbit to review literature (e.g. 'How does AttentionRAG compress context while preserving citation fidelity?')...",
+                        placeholder="Query academic literature (e.g. 'How does AttentionRAG compress context while preserving citation fidelity?')...",
                         lines=2,
                         scale=9,
                         label="Literature Query",
                         show_label=False,
                     )
-                    submit_btn = gr.Button("Ask CodeRabbit ➔", variant="primary", scale=3)
+                    submit_btn = gr.Button("Run Synthesis ➔", variant="primary", scale=3)
 
                 with gr.Row():
-                    clear_btn = gr.Button("🗑️ Reset Review", variant="secondary", size="sm")
+                    clear_btn = gr.Button("Reset Conversation", variant="secondary", size="sm")
 
-                # CodeRabbit Review Query Templates
+                # Verified Research Query Presets
                 gr.Examples(
                     examples=[
                         "How does AttentionRAG compress context while preserving citation fidelity?",
@@ -1079,7 +1062,7 @@ def create_ui() -> gr.Blocks:
                         "How does The Critic audit draft answers against passage provenance?",
                     ],
                     inputs=query_input,
-                    label="🐇 CodeRabbit Review Templates",
+                    label="Research Query Presets",
                 )
 
             # Right Column: Review Scorecard & Multi-Source Breakdown
@@ -1089,35 +1072,35 @@ def create_ui() -> gr.Blocks:
                     elem_id="metrics-panel",
                 )
 
-                # ── Unified Workspace Tabs (Replaces Vertical Stacking) ─────────
+                # ── Unified Workspace Tabs ───────────────────────────────────
                 with gr.Tabs(elem_id="workspace-tabs"):
 
                     # Tab 1: Memory & Knowledge Graph
-                    with gr.Tab("🧠 Memory & Graph", id="tab-memory"):
+                    with gr.Tab("Memory & Graph", id="tab-memory"):
                         with gr.Tabs(elem_id="sources-tabs"):
-                            with gr.Tab("📊 Neo4j Graph"):
+                            with gr.Tab("Neo4j Ontology"):
                                 sources_neo4j = gr.Markdown(
                                     value="*(Run a query to inspect Neo4j ontology and fact triples)*",
                                     label="Neo4j Knowledge Graph Triples",
                                 )
-                            with gr.Tab("🔍 FAISS Dense"):
+                            with gr.Tab("FAISS Dense"):
                                 sources_faiss = gr.Markdown(
                                     value="*(Run a query to inspect top cosine similarity chunks)*",
                                     label="FAISS Dense Vectors",
                                 )
-                            with gr.Tab("📚 BM25 Lexical"):
+                            with gr.Tab("BM25 Lexical"):
                                 sources_bm25 = gr.Markdown(
                                     value="*(Run a query to inspect BM25Okapi lexical matches)*",
                                     label="BM25 Sparse Lexical Store",
                                 )
-                            with gr.Tab("🌐 External APIs"):
+                            with gr.Tab("External APIs"):
                                 sources_external = gr.Markdown(
                                     value="*(External search triggers when internal evidence score < 80)*",
                                     label="External Academic APIs",
                                 )
 
                     # Tab 2: Live Ingestion & Autonomous ArXiv Watcher
-                    with gr.Tab("📥 Ingest & Watcher", id="tab-ingest"):
+                    with gr.Tab("Ingest & Watcher", id="tab-ingest"):
                         file_uploader = gr.File(
                             label="Select or Drop Academic Research Papers (PDF)",
                             file_types=[".pdf"],
@@ -1126,10 +1109,10 @@ def create_ui() -> gr.Blocks:
                         )
                         with gr.Row():
                             ingest_btn = gr.Button("Ingest Papers into Memory ➔", variant="primary", scale=8)
-                            wipe_btn = gr.Button("🗑️ Wipe All Memory", variant="stop", scale=4)
+                            wipe_btn = gr.Button("Wipe All Memory", variant="stop", scale=4)
 
                         # ── Autonomous ArXiv Watcher Controls ──────────────────
-                        with gr.Accordion("🤖 Autonomous ArXiv Daily Watcher", open=False):
+                        with gr.Accordion("Autonomous ArXiv Daily Watcher", open=False):
                             with gr.Row():
                                 arxiv_query = gr.Textbox(
                                     value="Retrieval-Augmented Generation",
@@ -1157,8 +1140,8 @@ def create_ui() -> gr.Blocks:
                             elem_id="cr-catalog-display",
                         )
 
-                    # Tab 3: CodeRabbit Review Settings Drawer
-                    with gr.Tab("⚙️ Settings", id="tab-settings"):
+                    # Tab 3: Settings Drawer
+                    with gr.Tab("Settings", id="tab-settings"):
                         with gr.Row():
                             llm_provider = gr.Radio(
                                 choices=["Local Ollama", "OpenAI API", "Anthropic Proxy", "Offline Fallback"],
