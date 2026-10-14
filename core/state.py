@@ -90,10 +90,10 @@ class AletheiaState(BaseModel):
     The master state object passed between all LangGraph nodes.
     """
     query: QueryState
-    memory: MemoryState
-    evaluation: EvaluationState
-    compression: CompressionState
-    generation: GenerationState
+    memory: Optional[MemoryState] = Field(default_factory=MemoryState)
+    evaluation: Optional[EvaluationState] = Field(default_factory=EvaluationState)
+    compression: Optional[CompressionState] = Field(default_factory=CompressionState)
+    generation: Optional[GenerationState] = Field(default_factory=GenerationState)
 
     pipeline_cost: float = Field(
         default=0.0,

@@ -77,6 +77,34 @@ class Settings(BaseSettings):
         default=None,
         description="OpenAI API key for cloud LLM fallback.",
     )
+    openai_base_url: Optional[str] = Field(
+        default=None,
+        description="OpenAI API base URL (allows local proxies or compatible endpoints).",
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        description="Default OpenAI model name.",
+    )
+    anthropic_base_url: Optional[str] = Field(
+        default=None,
+        description="Anthropic / NIM proxy base URL (e.g. from cc-nim).",
+    )
+    anthropic_auth_token: Optional[str] = Field(
+        default=None,
+        description="Anthropic / NIM proxy authorization token.",
+    )
+    anthropic_api_key: Optional[str] = Field(
+        default=None,
+        description="Anthropic API key.",
+    )
+    anthropic_model: Optional[str] = Field(
+        default=None,
+        description="Anthropic / NIM proxy model identifier.",
+    )
+    max_compression_ratio: float = Field(
+        default=6.3,
+        description="Target maximum compression ratio for AttentionRAG context pruning.",
+    )
 
     # ── External Academic APIs ──────────────────────────────────────────
     semantic_scholar_api_key: Optional[str] = Field(

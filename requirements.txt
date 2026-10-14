@@ -9,3 +9,5 @@ gradio
 langchain
 langgraph
 numpy
+httpx
+pytest-asyncio
