@@ -59,8 +59,8 @@ CUSTOM_CSS = """
     --cr-border: rgba(255, 255, 255, 0.08);
     --cr-border-subtle: rgba(255, 255, 255, 0.04);
     --cr-text-primary: #F3F4F6;
-    --cr-text-secondary: #9499AD;
-    --cr-text-muted: #646B82;
+    --cr-text-secondary: #A6ADBF;
+    --cr-text-muted: #8A92AB;
 }
 
 body, .gradio-container {
@@ -107,6 +107,12 @@ code, pre, .cr-mono {
     justify-content: center;
     box-shadow: 0 4px 16px var(--cr-orange-glow);
     flex-shrink: 0;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.cr-rabbit-icon:hover {
+    transform: scale(1.08) rotate(-2deg);
+    box-shadow: 0 0 24px rgba(255, 87, 10, 0.6) !important;
 }
 
 .cr-brand-title {
@@ -133,21 +139,21 @@ code, pre, .cr-mono {
 }
 
 .cr-badge-orange {
-    background: var(--cr-orange-subtle);
-    border: 1px solid rgba(255, 87, 10, 0.35);
-    color: var(--cr-orange);
+    background: rgba(255, 87, 10, 0.14) !important;
+    border: 1px solid rgba(255, 87, 10, 0.4) !important;
+    color: #FFA066 !important;
 }
 
 .cr-badge-mint {
-    background: var(--cr-mint-subtle);
-    border: 1px solid rgba(0, 242, 165, 0.35);
-    color: var(--cr-mint);
+    background: rgba(0, 242, 165, 0.12) !important;
+    border: 1px solid rgba(0, 242, 165, 0.4) !important;
+    color: #4EFEB3 !important;
 }
 
 .cr-badge-cobalt {
     background: var(--cr-cobalt-subtle);
     border: 1px solid rgba(59, 130, 246, 0.35);
-    color: var(--cr-cobalt);
+    color: #70A5FF !important;
 }
 
 .cr-header-desc {
@@ -413,6 +419,7 @@ code, pre, .cr-mono {
     flex-direction: column;
     gap: 4px;
     width: 100%;
+    min-width: 0 !important;
 }
 
 .cr-doc-title {
@@ -422,7 +429,7 @@ code, pre, .cr-mono {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 420px;
+    max-width: 100% !important;
 }
 
 .cr-doc-meta {
@@ -430,6 +437,38 @@ code, pre, .cr-mono {
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
+}
+
+/* ── Workspace Tabs Layout ─────────────────────────────────────────────── */
+#workspace-tabs > .tab-nav {
+    background: #111420 !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 10px !important;
+    padding: 5px !important;
+    gap: 6px !important;
+    margin-bottom: 12px !important;
+}
+
+#workspace-tabs > .tab-nav button {
+    border-radius: 8px !important;
+    padding: 7px 12px !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    color: var(--cr-text-secondary) !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s ease !important;
+}
+
+#workspace-tabs > .tab-nav button:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--cr-text-primary) !important;
+}
+
+#workspace-tabs > .tab-nav button.selected {
+    background: rgba(255, 87, 10, 0.12) !important;
+    color: #FFA066 !important;
+    border-color: rgba(255, 87, 10, 0.35) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 .cr-doc-empty {
@@ -1050,101 +1089,106 @@ def create_ui() -> gr.Blocks:
                     elem_id="metrics-panel",
                 )
 
-                # ── Ingestion Dock: Live PDF Ingestion & Corpus Manager ─────────────
-                with gr.Accordion("📥 Ingest Research Papers", open=False, elem_classes=["cr-ingest-dock"]):
-                    file_uploader = gr.File(
-                        label="Select or Drop Academic Research Papers (PDF)",
-                        file_types=[".pdf"],
-                        file_count="multiple",
-                        elem_id="cr-file-uploader",
-                    )
-                    with gr.Row():
-                        ingest_btn = gr.Button("Ingest Papers into Memory ➔", variant="primary", scale=8)
-                        wipe_btn = gr.Button("🗑️ Wipe All Memory", variant="stop", scale=4)
+                # ── Unified Workspace Tabs (Replaces Vertical Stacking) ─────────
+                with gr.Tabs(elem_id="workspace-tabs"):
 
-                    # ── Autonomous ArXiv Watcher Controls ──────────────────────
-                    with gr.Accordion("🤖 Autonomous ArXiv Daily Watcher", open=False):
+                    # Tab 1: Memory & Knowledge Graph
+                    with gr.Tab("🧠 Memory & Graph", id="tab-memory"):
+                        with gr.Tabs(elem_id="sources-tabs"):
+                            with gr.Tab("📊 Neo4j Graph"):
+                                sources_neo4j = gr.Markdown(
+                                    value="*(Run a query to inspect Neo4j ontology and fact triples)*",
+                                    label="Neo4j Knowledge Graph Triples",
+                                )
+                            with gr.Tab("🔍 FAISS Dense"):
+                                sources_faiss = gr.Markdown(
+                                    value="*(Run a query to inspect top cosine similarity chunks)*",
+                                    label="FAISS Dense Vectors",
+                                )
+                            with gr.Tab("📚 BM25 Lexical"):
+                                sources_bm25 = gr.Markdown(
+                                    value="*(Run a query to inspect BM25Okapi lexical matches)*",
+                                    label="BM25 Sparse Lexical Store",
+                                )
+                            with gr.Tab("🌐 External APIs"):
+                                sources_external = gr.Markdown(
+                                    value="*(External search triggers when internal evidence score < 80)*",
+                                    label="External Academic APIs",
+                                )
+
+                    # Tab 2: Live Ingestion & Autonomous ArXiv Watcher
+                    with gr.Tab("📥 Ingest & Watcher", id="tab-ingest"):
+                        file_uploader = gr.File(
+                            label="Select or Drop Academic Research Papers (PDF)",
+                            file_types=[".pdf"],
+                            file_count="multiple",
+                            elem_id="cr-file-uploader",
+                        )
                         with gr.Row():
-                            arxiv_query = gr.Textbox(
-                                value="Retrieval-Augmented Generation",
-                                label="ArXiv Topic / Search Keywords",
-                                scale=8,
+                            ingest_btn = gr.Button("Ingest Papers into Memory ➔", variant="primary", scale=8)
+                            wipe_btn = gr.Button("🗑️ Wipe All Memory", variant="stop", scale=4)
+
+                        # ── Autonomous ArXiv Watcher Controls ──────────────────
+                        with gr.Accordion("🤖 Autonomous ArXiv Daily Watcher", open=False):
+                            with gr.Row():
+                                arxiv_query = gr.Textbox(
+                                    value="Retrieval-Augmented Generation",
+                                    label="ArXiv Topic / Search Keywords",
+                                    scale=8,
+                                )
+                                arxiv_count = gr.Slider(
+                                    minimum=1,
+                                    maximum=5,
+                                    value=2,
+                                    step=1,
+                                    label="Max Papers",
+                                    scale=4,
+                                )
+                            arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers ➔", variant="secondary")
+
+                        ingest_status = gr.HTML(
+                            value=render_ingest_status_html(None),
+                            elem_id="cr-ingest-status",
+                        )
+
+                        gr.HTML("<div class='cr-subhead'>Active Literature in Memory:</div>")
+                        catalog_display = gr.HTML(
+                            value=render_catalog_html(),
+                            elem_id="cr-catalog-display",
+                        )
+
+                    # Tab 3: CodeRabbit Review Settings Drawer
+                    with gr.Tab("⚙️ Settings", id="tab-settings"):
+                        with gr.Row():
+                            llm_provider = gr.Radio(
+                                choices=["Local Ollama", "OpenAI API", "Anthropic Proxy", "Offline Fallback"],
+                                value="Local Ollama",
+                                label="LLM Provider",
                             )
-                            arxiv_count = gr.Slider(
-                                minimum=1,
-                                maximum=5,
-                                value=2,
-                                step=1,
-                                label="Max Papers",
-                                scale=4,
+                            local_model = gr.Dropdown(
+                                choices=["qwen2.5:7b", "llama3.1:8b", "nemotron-3-super-120b-a12b", "custom"],
+                                value="qwen2.5:7b",
+                                label="Ollama Model",
                             )
-                        arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers ➔", variant="secondary")
-
-                    ingest_status = gr.HTML(
-                        value=render_ingest_status_html(None),
-                        elem_id="cr-ingest-status",
-                    )
-
-                    gr.HTML("<div class='cr-subhead'>Active Literature in Memory:</div>")
-                    catalog_display = gr.HTML(
-                        value=render_catalog_html(),
-                        elem_id="cr-catalog-display",
-                    )
-
-                with gr.Tabs(elem_id="sources-tabs"):
-                    with gr.Tab("📊 Neo4j Graph"):
-                        sources_neo4j = gr.Markdown(
-                            value="*(Run a query to inspect Neo4j ontology and fact triples)*",
-                            label="Neo4j Knowledge Graph Triples",
+                        with gr.Row():
+                            evidence_threshold = gr.Slider(
+                                minimum=10.0,
+                                maximum=100.0,
+                                value=80.0,
+                                step=5.0,
+                                label="Evidence Threshold (Triggers External Fallback)",
+                            )
+                            max_compression_ratio = gr.Slider(
+                                minimum=1.0,
+                                maximum=10.0,
+                                value=6.3,
+                                step=0.5,
+                                label="Max AttentionRAG Compression Ratio",
+                            )
+                        enable_external_search = gr.Checkbox(
+                            value=True,
+                            label="Enable Fallback Academic Search (arXiv, Semantic Scholar, Crossref)",
                         )
-                    with gr.Tab("🔍 FAISS Dense"):
-                        sources_faiss = gr.Markdown(
-                            value="*(Run a query to inspect top cosine similarity chunks)*",
-                            label="FAISS Dense Vectors",
-                        )
-                    with gr.Tab("📚 BM25 Lexical"):
-                        sources_bm25 = gr.Markdown(
-                            value="*(Run a query to inspect BM25Okapi lexical matches)*",
-                            label="BM25 Sparse Lexical Store",
-                        )
-                    with gr.Tab("🌐 External APIs"):
-                        sources_external = gr.Markdown(
-                            value="*(External search triggers when internal evidence score < 80)*",
-                            label="External Academic APIs",
-                        )
-
-                # CodeRabbit Review Settings Drawer
-                with gr.Accordion("⚙️ CodeRabbit Review Settings", open=False):
-                    with gr.Row():
-                        llm_provider = gr.Radio(
-                            choices=["Local Ollama", "OpenAI API", "Anthropic Proxy", "Offline Fallback"],
-                            value="Local Ollama",
-                            label="LLM Provider",
-                        )
-                        local_model = gr.Dropdown(
-                            choices=["qwen2.5:7b", "llama3.1:8b", "nemotron-3-super-120b-a12b", "custom"],
-                            value="qwen2.5:7b",
-                            label="Ollama Model",
-                        )
-                    with gr.Row():
-                        evidence_threshold = gr.Slider(
-                            minimum=10.0,
-                            maximum=100.0,
-                            value=80.0,
-                            step=5.0,
-                            label="Evidence Threshold (Triggers External Fallback)",
-                        )
-                        max_compression_ratio = gr.Slider(
-                            minimum=1.0,
-                            maximum=10.0,
-                            value=6.3,
-                            step=0.5,
-                            label="Max AttentionRAG Compression Ratio",
-                        )
-                    enable_external_search = gr.Checkbox(
-                        value=True,
-                        label="Enable Fallback Academic Search (arXiv, Semantic Scholar, Crossref)",
-                    )
 
         # ── Event Bindings ───────────────────────────────────────────────────
         input_args = [
