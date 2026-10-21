@@ -675,9 +675,156 @@ textarea:focus, input[type="text"]:focus {
     background: rgba(255, 87, 10, 0.03) !important;
 }
 
+/* ── Header contrast fix ──────────────────────────────────────────────────
+   Gradio's prose/opacity styles were dimming the brand text to near-grey.
+   Force crisp, intentional hierarchy. */
+.cr-brand-title { color: #FFFFFF !important; opacity: 1 !important; }
+.cr-brand-title .cr-title-sub { color: #7C8498 !important; }
+.cr-header-desc { color: #AEB7C7 !important; opacity: 1 !important; }
+.cr-header-card .cr-meta-item { color: #C3CBDA !important; }
+.cr-brand-glyph { color: #FF843F !important; }
+
+/* ── Metrics scorecard — five cards balanced in a single responsive row ──── */
+.metrics-grid, .cr-scorecard-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+}
+@media (max-width: 1200px) {
+    .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 720px) {
+    .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+.metric-card, .cr-score-card { padding: 12px 14px !important; }
+.metric-value, .cr-score-val { font-size: 1.3rem !important; }
+
+/* ── Chat canvas welcome / empty state ───────────────────────────────────── */
+.cr-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    padding: 28px 30px;
+    gap: 6px;
+}
+.cr-welcome-glyph {
+    width: 60px; height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 16px;
+    color: var(--cr-orange);
+    background: radial-gradient(circle at 50% 35%, rgba(255,87,10,0.14), transparent 70%),
+                linear-gradient(145deg, rgba(27,31,44,0.9), rgba(16,18,26,0.9));
+    border: 1px solid rgba(255, 87, 10, 0.25);
+    box-shadow: 0 8px 26px rgba(255, 87, 10, 0.14), inset 0 1px 0 rgba(255,255,255,0.05);
+    margin-bottom: 12px;
+    animation: crFloat 5s ease-in-out infinite;
+}
+@keyframes crFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+.cr-welcome-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.15rem; font-weight: 700; color: #F8FAFC;
+    letter-spacing: -0.02em;
+}
+.cr-welcome-sub {
+    font-size: 0.85rem; line-height: 1.55; color: #94A3B8;
+    max-width: 440px; margin: 2px auto 0;
+}
+.cr-welcome-hints {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px;
+}
+.cr-welcome-pill {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+    color: #CBD5E1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--cr-border);
+    border-radius: 999px; padding: 5px 12px;
+}
+
+/* ── Composer (query input + submit) — unified bar ───────────────────────── */
+.cr-composer-row { align-items: stretch !important; gap: 10px !important; margin-top: 12px !important; }
+#cr-query-input textarea {
+    background: rgba(16, 18, 26, 0.75) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem !important;
+    padding: 12px 14px !important;
+}
+#cr-submit-btn { align-self: stretch !important; min-height: 100% !important; font-size: 0.92rem !important; }
+.cr-composer-actions { margin-top: 8px !important; }
+
+/* Examples dataset — turn Gradio's default table into tidy query chips */
+#cr-examples .gr-samples-table, #cr-examples table { border: none !important; background: transparent !important; }
+#cr-examples button, #cr-examples td {
+    background: rgba(20, 24, 36, 0.6) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 8px !important;
+    color: var(--cr-text-secondary) !important;
+    font-size: 0.8rem !important;
+    transition: all 0.18s ease !important;
+}
+#cr-examples button:hover, #cr-examples td:hover {
+    border-color: rgba(255, 87, 10, 0.4) !important;
+    color: var(--cr-text-primary) !important;
+    background: rgba(255, 87, 10, 0.06) !important;
+}
+
+/* ── Right workspace column — give tab panels real presence ──────────────── */
+#workspace-tabs .tabitem { min-height: 360px !important; }
+#metrics-panel { margin-bottom: 4px !important; }
+
+/* Source markdown panels: readable padding + card feel */
+#workspace-tabs .prose, #sources-tabs .prose { font-size: 0.86rem !important; line-height: 1.55 !important; }
+
+/* Welcome-pill status dots (replaces unsupported glyphs that render as tofu) */
+.cr-welcome-pill { display: inline-flex; align-items: center; gap: 7px; }
+.cr-pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 0 7px currentColor; }
+
+/* Metric card labels: allow a clean two-line wrap instead of clipping */
+.metric-card, .cr-score-card { padding: 12px 10px !important; min-width: 0 !important; }
+.metric-label, .cr-score-lbl {
+    font-size: 0.6rem !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    letter-spacing: 0.04em !important;
+}
+.metric-value, .cr-score-val {
+    font-size: 1.18rem !important;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+/* CSS-drawn arrow on the submit button — font-independent, never tofu */
+#cr-submit-btn button, #cr-submit-btn { position: relative; }
+#cr-submit-btn button::after {
+    content: "";
+    display: inline-block;
+    width: 7px; height: 7px;
+    margin-left: 9px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform 0.2s ease;
+    vertical-align: middle;
+}
+#cr-submit-btn button:hover::after { transform: rotate(45deg) translate(2px, -1px); }
+
+/* Keep the header's monospace meta chips from overflowing on mid widths */
+.cr-meta-bar { gap: 8px !important; }
+.cr-meta-item .cr-mono { font-size: 0.68rem !important; }
+
+/* Default-state graph canvas inside the Neo4j tab reads as a feature, not a gap */
+#cr-graph-preview iframe, #cr-graph-preview > div { border-radius: 12px !important; }
+
 /* Respect reduced-motion preferences for accessibility */
 @media (prefers-reduced-motion: reduce) {
-    .cr-pulse-dot, .step-active { animation: none !important; }
+    .cr-pulse-dot, .step-active, .cr-welcome-glyph { animation: none !important; }
     .gr-button-primary, button.primary, .metric-card, .cr-doc-card { transition: none !important; }
 }
 """
@@ -694,6 +841,28 @@ ALL_STAGES = [
     ("pruner", "5. Pruner (AttnRAG)", "05"),
     ("generator", "6. Generator & Critic", "06"),
 ]
+
+# Rich empty-state shown inside the chat canvas before the first query,
+# so the synthesis stream reads as an invitation rather than a black void.
+WELCOME_PLACEHOLDER = (
+    "<div class='cr-welcome'>"
+    "<div class='cr-welcome-glyph'>"
+    "<svg width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+    "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>"
+    "<circle cx='12' cy='12' r='3'/><path d='M3 12h3M18 12h3M12 3v3M12 18v3'/>"
+    "<circle cx='12' cy='12' r='9' stroke-opacity='0.35'/></svg>"
+    "</div>"
+    "<div class='cr-welcome-title'>Synthesis Stream</div>"
+    "<div class='cr-welcome-sub'>Ask a question about your ingested AI literature. "
+    "Aletheia routes it through the six-node pipeline — retrieval, evidence scoring, "
+    "AttentionRAG compression and a Critic audit — then streams a cited synthesis here.</div>"
+    "<div class='cr-welcome-hints'>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#FF570A'></span>Hybrid RRF retrieval</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#3B82F6'></span>100-pt evidence rubric</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#00F2A5'></span>Zero-hallucination Critic</span>"
+    "</div>"
+    "</div>"
+)
 
 
 def _ensure_state(state: Any) -> AletheiaState | None:
@@ -773,7 +942,7 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
             "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Compression Ratio</div></div>"
             "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>0.0s</div><div class='metric-label'>Latency</div></div>"
             "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>The Critic QA</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Est. Cost</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Token Cost</div></div>"
             "</div>"
         )
 
@@ -1182,10 +1351,48 @@ def stream_query_pipeline(
 #  Gradio UI Layout Construction (Precision Research Console)
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _build_theme() -> "gr.themes.Base":
+    """Dark design-system theme so Gradio's own components (inputs, buttons,
+    blocks) render on dark surfaces at the source — the custom CSS then layers
+    the CodeRabbit brand aesthetic on top."""
+    theme = gr.themes.Base(
+        primary_hue=gr.themes.colors.orange,
+        secondary_hue=gr.themes.colors.blue,
+        neutral_hue=gr.themes.colors.slate,
+        font=(gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"),
+        font_mono=(gr.themes.GoogleFont("JetBrains Mono"), "ui-monospace", "monospace"),
+    ).set(
+        body_background_fill="#090a0f",
+        body_background_fill_dark="#090a0f",
+        body_text_color="#F8FAFC",
+        background_fill_primary="rgba(16, 18, 26, 0.75)",
+        background_fill_secondary="rgba(20, 24, 36, 0.6)",
+        block_background_fill="rgba(16, 18, 26, 0.6)",
+        block_border_color="rgba(255, 255, 255, 0.07)",
+        block_label_background_fill="rgba(20, 24, 36, 0.6)",
+        block_label_text_color="#94A3B8",
+        border_color_primary="rgba(255, 255, 255, 0.08)",
+        input_background_fill="rgba(16, 18, 26, 0.85)",
+        input_background_fill_focus="rgba(20, 24, 36, 0.95)",
+        input_border_color="rgba(255, 255, 255, 0.10)",
+        input_border_color_focus="rgba(255, 87, 10, 0.55)",
+        input_placeholder_color="#64748B",
+        button_secondary_background_fill="rgba(20, 24, 36, 0.9)",
+        button_secondary_background_fill_hover="rgba(27, 31, 44, 0.95)",
+        button_secondary_text_color="#CBD5E1",
+        button_secondary_border_color="rgba(255, 255, 255, 0.10)",
+        color_accent_soft="rgba(255, 87, 10, 0.12)",
+    )
+    return theme
+
+
 def create_ui() -> gr.Blocks:
     """Construct the precision research console web app for Project Aletheia."""
 
-    with gr.Blocks(title="Project Aletheia — Autonomous AI Research") as demo:
+    with gr.Blocks(
+        title="Project Aletheia — Autonomous AI Research",
+        theme=_build_theme(),
+    ) as demo:
         # Injected Custom Design System CSS
         gr.HTML(f"<style>{CUSTOM_CSS}</style>")
 
@@ -1231,22 +1438,27 @@ def create_ui() -> gr.Blocks:
             with gr.Column(scale=7):
                 chatbot = gr.Chatbot(
                     label="Synthesis Stream & Verification Trace",
-                    height=530,
+                    height=460,
                     elem_id="aletheia-chatbot",
                     layout="bubble",
+                    show_label=False,
+                    placeholder=WELCOME_PLACEHOLDER,
                 )
 
-                with gr.Row():
+                with gr.Row(elem_classes=["cr-composer-row"]):
                     query_input = gr.Textbox(
-                        placeholder="Query academic literature (e.g. 'How does AttentionRAG compress context while preserving citation fidelity?')...",
+                        placeholder="Ask the research console  —  e.g. How does AttentionRAG compress context while preserving citation fidelity?",
                         lines=2,
+                        max_lines=6,
                         scale=9,
                         label="Literature Query",
                         show_label=False,
+                        elem_id="cr-query-input",
+                        autofocus=True,
                     )
-                    submit_btn = gr.Button("Run Synthesis ➔", variant="primary", scale=3)
+                    submit_btn = gr.Button("Run Synthesis", variant="primary", scale=3, elem_id="cr-submit-btn")
 
-                with gr.Row():
+                with gr.Row(elem_classes=["cr-composer-actions"]):
                     clear_btn = gr.Button("Reset Conversation", variant="secondary", size="sm")
 
                 # Verified Research Query Presets
@@ -1258,7 +1470,8 @@ def create_ui() -> gr.Blocks:
                         "How does The Critic audit draft answers against passage provenance?",
                     ],
                     inputs=query_input,
-                    label="Research Query Presets",
+                    label="Try a research query",
+                    elem_id="cr-examples",
                 )
 
             # Right Column: Review Scorecard & Multi-Source Breakdown
@@ -1276,8 +1489,9 @@ def create_ui() -> gr.Blocks:
                         with gr.Tabs(elem_id="sources-tabs"):
                             with gr.Tab("Neo4j Ontology"):
                                 sources_neo4j = gr.Markdown(
-                                    value="*(Run a query to inspect Neo4j ontology and fact triples)*",
+                                    value=format_neo4j_markdown(None),
                                     label="Neo4j Knowledge Graph Triples",
+                                    elem_id="cr-graph-preview",
                                 )
                             with gr.Tab("FAISS Dense"):
                                 sources_faiss = gr.Markdown(
@@ -1304,7 +1518,7 @@ def create_ui() -> gr.Blocks:
                             elem_id="cr-file-uploader",
                         )
                         with gr.Row():
-                            ingest_btn = gr.Button("Ingest Papers into Memory ➔", variant="primary", scale=8)
+                            ingest_btn = gr.Button("Ingest Papers into Memory", variant="primary", scale=8)
                             wipe_btn = gr.Button("Wipe All Memory", variant="stop", scale=4)
 
                         # ── Autonomous ArXiv Watcher Controls ──────────────────
@@ -1323,7 +1537,7 @@ def create_ui() -> gr.Blocks:
                                     label="Max Papers",
                                     scale=4,
                                 )
-                            arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers ➔", variant="secondary")
+                            arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers", variant="secondary")
 
                         ingest_status = gr.HTML(
                             value=render_ingest_status_html(None),
