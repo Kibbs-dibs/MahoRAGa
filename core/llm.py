@@ -5,7 +5,7 @@ Provides a unified interface across multiple LLM backends:
 1. Ollama (local server, e.g. qwen2.5:7b)
 2. OpenAI (cloud API or custom base URL)
 3. Anthropic / NVIDIA NIM Proxy (e.g. localhost:8082 from cc-nim)
-4. Offline Fallback (deterministic semantic synthesis with citation grounding)
+4. Offline Fallback (deterministic, clearly-disclosed un-grounded synthesis)
 
 Uses `httpx` for zero-overhead HTTP communication.
 """
@@ -23,6 +23,11 @@ from pydantic import BaseModel, Field
 from core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Disclosure banner emitted by the offline fallback generator. It is an explicit
+# notice that no LLM backend is connected, NOT a fabricated source citation.
+# The offline critic ignores this marker when auditing bracketed citations.
+OFFLINE_DISCLOSURE = "[OFFLINE STUB: no LLM backend connected; citations not verified]"
 
 
 class LLMResponse(BaseModel):
@@ -320,14 +325,33 @@ class LLMClient:
             user_msg = next((m["content"] for m in reversed(messages) if m["role"] == "user"), all_text)
             draft_match = re.search(r"<DRAFT_ANSWER>([\s\S]*?)</DRAFT_ANSWER>", user_msg)
             draft_text = draft_match.group(1).strip() if draft_match else user_msg
-            has_citations = bool(re.search(r"\[[^\]]+\]", draft_text))
-            if has_citations:
-                output = {"passed": True, "feedback": None}
-            else:
+            ctx_match = re.search(r"<PRUNED_CONTEXT>([\s\S]*?)</PRUNED_CONTEXT>", user_msg)
+            context_text = ctx_match.group(1) if ctx_match else ""
+
+            # Honest offline audit: the offline stub cannot truly verify grounding,
+            # so it only certifies a draft when the bracketed citations it contains
+            # actually correspond to identifiers present in the pruned context it was
+            # given. It never "passes" a draft just because it contains some [..] text.
+            draft_citations = set(re.findall(r"\[[^\]]+\]", draft_text))
+            draft_citations.discard(OFFLINE_DISCLOSURE)
+            context_citations = set(re.findall(r"\[[^\]]+\]", context_text))
+            if not draft_citations:
                 output = {
                     "passed": False,
                     "feedback": "Every technical claim must end with a bracketed citation matching a source in the context.",
                 }
+            else:
+                unverifiable = [c for c in draft_citations if c not in context_citations]
+                if unverifiable:
+                    output = {
+                        "passed": False,
+                        "feedback": (
+                            "The following citations do not correspond to any source in the "
+                            f"provided context and cannot be verified: {', '.join(sorted(unverifiable))}."
+                        ),
+                    }
+                else:
+                    output = {"passed": True, "feedback": None}
             return LLMResponse(
                 content=json.dumps(output),
                 model="offline/heuristic-critic",
@@ -345,18 +369,29 @@ class LLMClient:
         context = pruned_match.group(1).strip() if pruned_match else ""
         query = query_match.group(1).strip() if query_match else "the topic"
 
-        # Build grounded synthesis with citations
+        # Build a synthesis from the supplied context WITHOUT inventing any
+        # provenance. The offline stub has no LLM backend and therefore cannot
+        # ground claims, so it discloses that explicitly rather than fabricating
+        # citation tags like "[Ref-1, 2024]". If the context lines already carry
+        # real bracketed source identifiers, those are preserved verbatim (never
+        # synthesized anew).
         lines = [line.strip() for line in context.splitlines() if line.strip() and not line.startswith("===")]
         facts = lines[:4] if lines else [context[:150]] if context else ["No specific factual context was provided."]
 
         synthesized = [
-            f"Based on the verified evidence regarding {query}:",
+            OFFLINE_DISCLOSURE,
+            "",
+            f"Summarizing the available context regarding {query}:",
             "",
         ]
-        for idx, fact in enumerate(facts, 1):
-            synthesized.append(f"- {fact} [Ref-{idx}, 2024]")
+        for fact in facts:
+            synthesized.append(f"- {fact}")
         synthesized.append("")
-        synthesized.append(f"In summary, the analyzed literature confirms these properties for {query} [Synthesized Evidence, 2024].")
+        synthesized.append(
+            "This response was produced by the deterministic offline fallback. "
+            "Connect an LLM backend (Ollama, OpenAI, or the NIM proxy) for a grounded, "
+            "citation-verified answer."
+        )
 
         content = "\n".join(synthesized)
         return LLMResponse(

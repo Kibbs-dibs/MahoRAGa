@@ -40,7 +40,7 @@ class ParsedDocument(BaseModel):
     doc_id: str
     title: str
     authors: List[str] = Field(default_factory=list)
-    year: int = 2024
+    year: Optional[int] = None
     abstract: str = ""
     sections: List[ParsedSection] = Field(default_factory=list)
     total_pages: int = 0
@@ -60,6 +60,70 @@ def _clean_text(text: str) -> str:
     # Normalize multiple newlines and spaces
     text = re.sub(r"[ \t]+", " ", text)
     return text.strip()
+
+
+# Plausible range for an academic publication year.
+_MIN_YEAR = 1950
+_MAX_YEAR = 2099
+
+_ARXIV_ID_PATTERN = re.compile(r"arXiv:\s*(\d{2})(\d{2})\.\d{4,5}", re.IGNORECASE)
+_CONTEXT_YEAR_PATTERN = re.compile(
+    r"(?:©|\(c\)|copyright|published|accepted|proceedings of|in\s+proceedings)"
+    r"[^\n]{0,40}?((?:19|20)\d{2})",
+    re.IGNORECASE,
+)
+_STANDALONE_YEAR_PATTERN = re.compile(r"\b((?:19|20)\d{2})\b")
+
+
+def _plausible(year: int) -> bool:
+    return _MIN_YEAR <= year <= _MAX_YEAR
+
+
+def _extract_year(text: str, metadata: Optional[Dict] = None) -> Optional[int]:
+    """
+    Best-effort extraction of a publication year from page-1 text and PDF metadata.
+
+    Resolution order (most to least reliable):
+      1. arXiv identifier (e.g. ``arXiv:2309.01234`` -> 2023).
+      2. A 4-digit year appearing in a copyright / "Published" / "©" context.
+      3. ``creationDate`` / ``modDate`` from the fitz document metadata.
+      4. A plausible standalone 19xx/20xx year found in the text.
+
+    Returns the most likely publication year, or ``None`` when no plausible
+    year can be determined.
+    """
+    text = text or ""
+
+    # 1. arXiv id encodes YYMM — the first two digits map to 20YY.
+    arxiv_match = _ARXIV_ID_PATTERN.search(text)
+    if arxiv_match:
+        candidate = 2000 + int(arxiv_match.group(1))
+        if _plausible(candidate):
+            return candidate
+
+    # 2. Year in an explicit publication/copyright context.
+    ctx_match = _CONTEXT_YEAR_PATTERN.search(text)
+    if ctx_match:
+        candidate = int(ctx_match.group(1))
+        if _plausible(candidate):
+            return candidate
+
+    # 3. PDF metadata dates (PyMuPDF format: "D:YYYYMMDD...").
+    if metadata:
+        for key in ("creationDate", "modDate"):
+            raw = metadata.get(key) or ""
+            meta_match = re.search(r"((?:19|20)\d{2})", raw)
+            if meta_match:
+                candidate = int(meta_match.group(1))
+                if _plausible(candidate):
+                    return candidate
+
+    # 4. Any plausible standalone year; prefer the most recent such year.
+    standalone = [int(y) for y in _STANDALONE_YEAR_PATTERN.findall(text) if _plausible(int(y))]
+    if standalone:
+        return max(standalone)
+
+    return None
 
 
 def parse_pdf(file_path: str | Path) -> ParsedDocument:
@@ -93,6 +157,11 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
     page_1 = doc[0]
     p1_text = page_1.get_text("text")
     p1_lines = [line.strip() for line in p1_text.splitlines() if line.strip()]
+
+    # Best-effort publication year extraction (arXiv id, copyright/published
+    # context, PDF metadata, or a plausible standalone year). None when unknown.
+    pdf_metadata = doc.metadata or {}
+    year = _extract_year(p1_text, pdf_metadata)
 
     # First prominent line is typically title
     title = p1_lines[0] if p1_lines else path.stem
@@ -193,7 +262,7 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
         doc_id=doc_id,
         title=title,
         authors=authors[:5] if authors else ["Research Team"],
-        year=2024,
+        year=year,
         abstract=abstract_text,
         sections=sections,
         total_pages=total_pages,
