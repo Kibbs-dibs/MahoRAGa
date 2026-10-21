@@ -5,7 +5,20 @@ Under the offline deterministic LLM stub, ``llm_client.call`` does not return
 extraction JSON for the extractor prompt shape, so ``extract_from_chunk`` must
 fall back to the regex extractor and still produce facts. These tests run on the
 lightweight interpreter without PyMuPDF by building a synthetic Chunk directly.
+
+``ingestion.chunker`` imports ``ingestion.parser``, which does ``import fitz``
+at module top. A minimal ``fitz`` stub is installed before those imports so
+this test is self-contained and passes in isolation regardless of collection
+order.
 """
+
+import sys
+import types
+
+# Stub fitz so importing ingestion.parser (via ingestion.chunker) does not
+# require PyMuPDF. Must run before the ingestion.* imports below.
+if "fitz" not in sys.modules:
+    sys.modules["fitz"] = types.ModuleType("fitz")
 
 from ingestion.chunker import Chunk
 from ingestion.extractor import extract_from_chunk, CANONICAL_RELATIONS

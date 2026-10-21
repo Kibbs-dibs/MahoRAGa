@@ -35,7 +35,12 @@ class MemoryState(BaseModel):
     )
     fused_chunks: List[str] = Field(
         default_factory=list,
-        description="RRF-fused, cross-encoder-reranked chunk texts across FAISS + BM25 (+ serialized graph triples)."
+        description=(
+            "RRF-fused, cross-encoder-reranked chunk texts across FAISS + BM25 "
+            "(+ serialized graph triples). Consumed by pruner_node as the "
+            "prioritized context section (deduplicated against the per-layer "
+            "fields) so fusion influences the final answer."
+        )
     )
 
 
