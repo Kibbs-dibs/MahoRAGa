@@ -33,6 +33,10 @@ class MemoryState(BaseModel):
         default_factory=list,
         description="Vetted abstracts from Crossref, OpenAlex, and Semantic Scholar."
     )
+    fused_chunks: List[str] = Field(
+        default_factory=list,
+        description="RRF-fused, cross-encoder-reranked chunk texts across FAISS + BM25 (+ serialized graph triples)."
+    )
 
 
 class EvaluationState(BaseModel):
