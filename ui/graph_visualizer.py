@@ -134,11 +134,17 @@ def generate_interactive_graph_html(
     if not nodes:
         return (
             f"<div style='height:{height_px}px; display:flex; flex-direction:column; align-items:center; "
-            f"justify-content:center; background:#111420; border:1px solid rgba(255,255,255,0.08); "
-            f"border-radius:12px; color:#8E95AA; font-family:Inter,sans-serif; text-align:center; padding:20px;'>"
-            f"<div style='font-size:2rem; margin-bottom:8px;'>🕸️</div>"
-            f"<div style='font-weight:600; font-size:0.95rem; color:#F3F4F6;'>No Active Knowledge Graph Nodes</div>"
-            f"<div style='font-size:0.8rem; margin-top:4px;'>Run a literature query or ingest papers to inspect entity relationships.</div>"
+            f"justify-content:center; "
+            f"background:radial-gradient(circle at 50% 30%, rgba(255,87,10,0.06), transparent 60%), "
+            f"linear-gradient(180deg, rgba(20,24,36,0.6), rgba(11,13,20,0.6)); "
+            f"backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); "
+            f"border:1px solid rgba(255,255,255,0.08); "
+            f"border-radius:12px; color:#8E95AA; font-family:Inter,sans-serif; text-align:center; padding:24px; "
+            f"box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 26px rgba(0,0,0,0.3);'>"
+            f"<div style='font-size:2.1rem; margin-bottom:10px; opacity:0.85; "
+            f"filter:drop-shadow(0 0 10px rgba(255,87,10,0.25));'>🕸️</div>"
+            f"<div style='font-weight:700; font-size:0.95rem; color:#F3F4F6; letter-spacing:-0.01em;'>No Active Knowledge Graph Nodes</div>"
+            f"<div style='font-size:0.8rem; margin-top:6px; max-width:320px; line-height:1.5;'>Run a literature query or ingest papers to inspect entity relationships.</div>"
             f"</div>"
         )
 

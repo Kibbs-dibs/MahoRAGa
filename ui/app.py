@@ -484,6 +484,349 @@ code, pre, .cr-mono {
     margin-top: 10px;
     margin-bottom: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ELEVATION LAYER — Premium depth, glassmorphism & micro-animation refinements
+   (Overrides flat surfaces from the base layer above; aligned with the
+   modern-ui-designer skill: layered radial canvas, glass cards, pulse glows.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Ambient canvas: subtle multi-point radial glow instead of a flat void */
+body, .gradio-container {
+    background:
+        radial-gradient(900px circle at 12% -8%, rgba(255, 87, 10, 0.07), transparent 42%),
+        radial-gradient(1000px circle at 100% 0%, rgba(59, 130, 246, 0.06), transparent 46%),
+        radial-gradient(1200px circle at 50% 120%, rgba(0, 242, 165, 0.045), transparent 50%),
+        #090a0f !important;
+    background-attachment: fixed !important;
+}
+
+.gradio-container { max-width: 1480px !important; margin: 0 auto !important; }
+
+/* Shared smooth easing for all interactive surfaces */
+.cr-header-card, .metric-card, .cr-score-card, .cr-doc-card,
+.stepper-container, .cr-stepper-box, .gr-button-primary, button.primary,
+.gr-button-secondary, #workspace-tabs > .tab-nav button {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Header — glass surface with an accent top hairline */
+.cr-header-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(22, 26, 38, 0.72), rgba(14, 16, 24, 0.72)) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    overflow: hidden;
+}
+.cr-header-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cr-orange) 20%, var(--cr-mint) 55%, var(--cr-cobalt) 85%, transparent);
+    opacity: 0.8;
+}
+
+.cr-brand-glyph {
+    background: linear-gradient(145deg, #1b1f2c, #121521) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+.cr-brand-glyph:hover {
+    color: var(--cr-orange) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(255, 87, 10, 0.25) !important;
+    transform: translateY(-1px);
+}
+
+/* Live pulse dot — soft breathing glow for "online" status */
+.cr-pulse-dot { animation: crPulseGlow 2.4s ease-in-out infinite; }
+@keyframes crPulseGlow {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(0, 242, 165, 0.65); }
+    50% { opacity: 0.55; box-shadow: 0 0 2px rgba(0, 242, 165, 0.2); }
+}
+
+/* Stepper — glass tray */
+.stepper-container, .cr-stepper-box {
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.66), rgba(14, 16, 24, 0.66)) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3) !important;
+}
+/* Active pipeline node breathes while running */
+.step-active {
+    animation: crStepBreath 1.8s ease-in-out infinite;
+    box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18) !important;
+}
+@keyframes crStepBreath {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18); }
+    50% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.45), 0 6px 20px rgba(255, 87, 10, 0.32); }
+}
+
+/* Metric scorecards — glass with accent top edge + lift on hover */
+.metric-card, .cr-score-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.6), rgba(14, 16, 24, 0.6)) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28) !important;
+    overflow: hidden;
+}
+.metric-card::after, .cr-score-card::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cr-orange), rgba(255, 87, 10, 0));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.metric-card:hover, .cr-score-card:hover {
+    border-color: rgba(255, 87, 10, 0.35) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(255, 87, 10, 0.12) !important;
+}
+.metric-card:hover::after, .cr-score-card:hover::after { opacity: 0.9; }
+.metric-value, .cr-score-val { font-variant-numeric: tabular-nums; }
+
+/* Chatbot canvas — subtle inner gradient + deeper shadow */
+.gradio-chatbot, #aletheia-chatbot {
+    background: linear-gradient(180deg, rgba(14, 16, 24, 0.9), rgba(9, 10, 15, 0.9)) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Primary button — gradient ember with lift + press feedback */
+.gr-button-primary, button.primary {
+    background: linear-gradient(180deg, #FF6A24, #FF570A) !important;
+    border: 1px solid rgba(255, 150, 90, 0.35) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 6px 18px rgba(255, 87, 10, 0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+.gr-button-primary:hover, button.primary:hover {
+    background: linear-gradient(180deg, #FF7A3A, #FF6117) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 10px 26px rgba(255, 87, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+}
+.gr-button-primary:active, button.primary:active { transform: scale(0.98) !important; }
+
+/* Secondary button — press feedback */
+.gr-button-secondary:active { transform: scale(0.98) !important; }
+
+/* Text inputs — focus ring in brand coral */
+textarea, input[type="text"], .gr-box textarea {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+textarea:focus, input[type="text"]:focus {
+    border-color: rgba(255, 87, 10, 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(255, 87, 10, 0.14) !important;
+    outline: none !important;
+}
+
+/* Workspace tabs — glass tray + animated selected underline */
+#workspace-tabs > .tab-nav {
+    background: rgba(18, 22, 34, 0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+#workspace-tabs > .tab-nav button.selected {
+    background: linear-gradient(180deg, #1b1f2c, #14171f) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Document cards — glass + lift on hover */
+.cr-doc-card {
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.55), rgba(15, 17, 26, 0.55)) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+.cr-doc-card:hover {
+    border-color: rgba(255, 87, 10, 0.3) !important;
+    transform: translateX(2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Refined scrollbars inside document/source panels */
+.cr-doc-list::-webkit-scrollbar { width: 8px; }
+.cr-doc-list::-webkit-scrollbar-track { background: transparent; }
+.cr-doc-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+.cr-doc-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 87, 10, 0.4); }
+
+/* Badges lift slightly on hover for tactility */
+.cr-badge-pill { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.cr-doc-card:hover .cr-badge-orange { box-shadow: 0 0 10px rgba(255, 87, 10, 0.25); }
+
+/* Accordion & file-drop surfaces inherit the glass treatment */
+#cr-file-uploader {
+    border: 1px dashed var(--cr-border) !important;
+    border-radius: 10px !important;
+    transition: border-color 0.2s ease, background 0.2s ease !important;
+}
+#cr-file-uploader:hover {
+    border-color: rgba(255, 87, 10, 0.4) !important;
+    background: rgba(255, 87, 10, 0.03) !important;
+}
+
+/* ── Header contrast fix ──────────────────────────────────────────────────
+   Gradio's prose/opacity styles were dimming the brand text to near-grey.
+   Force crisp, intentional hierarchy. */
+.cr-brand-title { color: #FFFFFF !important; opacity: 1 !important; }
+.cr-brand-title .cr-title-sub { color: #7C8498 !important; }
+.cr-header-desc { color: #AEB7C7 !important; opacity: 1 !important; }
+.cr-header-card .cr-meta-item { color: #C3CBDA !important; }
+.cr-brand-glyph { color: #FF843F !important; }
+
+/* ── Metrics scorecard — five cards balanced in a single responsive row ──── */
+.metrics-grid, .cr-scorecard-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+}
+@media (max-width: 1200px) {
+    .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 720px) {
+    .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+.metric-card, .cr-score-card { padding: 12px 14px !important; }
+.metric-value, .cr-score-val { font-size: 1.3rem !important; }
+
+/* ── Chat canvas welcome / empty state ───────────────────────────────────── */
+.cr-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    padding: 28px 30px;
+    gap: 6px;
+}
+.cr-welcome-glyph {
+    width: 60px; height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 16px;
+    color: var(--cr-orange);
+    background: radial-gradient(circle at 50% 35%, rgba(255,87,10,0.14), transparent 70%),
+                linear-gradient(145deg, rgba(27,31,44,0.9), rgba(16,18,26,0.9));
+    border: 1px solid rgba(255, 87, 10, 0.25);
+    box-shadow: 0 8px 26px rgba(255, 87, 10, 0.14), inset 0 1px 0 rgba(255,255,255,0.05);
+    margin-bottom: 12px;
+    animation: crFloat 5s ease-in-out infinite;
+}
+@keyframes crFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+.cr-welcome-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.15rem; font-weight: 700; color: #F8FAFC;
+    letter-spacing: -0.02em;
+}
+.cr-welcome-sub {
+    font-size: 0.85rem; line-height: 1.55; color: #94A3B8;
+    max-width: 440px; margin: 2px auto 0;
+}
+.cr-welcome-hints {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px;
+}
+.cr-welcome-pill {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+    color: #CBD5E1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--cr-border);
+    border-radius: 999px; padding: 5px 12px;
+}
+
+/* ── Composer (query input + submit) — unified bar ───────────────────────── */
+.cr-composer-row { align-items: stretch !important; gap: 10px !important; margin-top: 12px !important; }
+#cr-query-input textarea {
+    background: rgba(16, 18, 26, 0.75) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem !important;
+    padding: 12px 14px !important;
+}
+#cr-submit-btn { align-self: stretch !important; min-height: 100% !important; font-size: 0.92rem !important; }
+.cr-composer-actions { margin-top: 8px !important; }
+
+/* Examples dataset — turn Gradio's default table into tidy query chips */
+#cr-examples .gr-samples-table, #cr-examples table { border: none !important; background: transparent !important; }
+#cr-examples button, #cr-examples td {
+    background: rgba(20, 24, 36, 0.6) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 8px !important;
+    color: var(--cr-text-secondary) !important;
+    font-size: 0.8rem !important;
+    transition: all 0.18s ease !important;
+}
+#cr-examples button:hover, #cr-examples td:hover {
+    border-color: rgba(255, 87, 10, 0.4) !important;
+    color: var(--cr-text-primary) !important;
+    background: rgba(255, 87, 10, 0.06) !important;
+}
+
+/* ── Right workspace column — give tab panels real presence ──────────────── */
+#workspace-tabs .tabitem { min-height: 360px !important; }
+#metrics-panel { margin-bottom: 4px !important; }
+
+/* Source markdown panels: readable padding + card feel */
+#workspace-tabs .prose, #sources-tabs .prose { font-size: 0.86rem !important; line-height: 1.55 !important; }
+
+/* Welcome-pill status dots (replaces unsupported glyphs that render as tofu) */
+.cr-welcome-pill { display: inline-flex; align-items: center; gap: 7px; }
+.cr-pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    box-shadow: 0 0 7px currentColor; }
+
+/* Metric card labels: allow a clean two-line wrap instead of clipping */
+.metric-card, .cr-score-card { padding: 12px 10px !important; min-width: 0 !important; }
+.metric-label, .cr-score-lbl {
+    font-size: 0.6rem !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    letter-spacing: 0.04em !important;
+}
+.metric-value, .cr-score-val {
+    font-size: 1.18rem !important;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+/* CSS-drawn arrow on the submit button — font-independent, never tofu */
+#cr-submit-btn button, #cr-submit-btn { position: relative; }
+#cr-submit-btn button::after {
+    content: "";
+    display: inline-block;
+    width: 7px; height: 7px;
+    margin-left: 9px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform 0.2s ease;
+    vertical-align: middle;
+}
+#cr-submit-btn button:hover::after { transform: rotate(45deg) translate(2px, -1px); }
+
+/* Keep the header's monospace meta chips from overflowing on mid widths */
+.cr-meta-bar { gap: 8px !important; }
+.cr-meta-item .cr-mono { font-size: 0.68rem !important; }
+
+/* Default-state graph canvas inside the Neo4j tab reads as a feature, not a gap */
+#cr-graph-preview iframe, #cr-graph-preview > div { border-radius: 12px !important; }
+
+/* Respect reduced-motion preferences for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .cr-pulse-dot, .step-active, .cr-welcome-glyph { animation: none !important; }
+    .gr-button-primary, button.primary, .metric-card, .cr-doc-card { transition: none !important; }
+}
 """
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -498,6 +841,28 @@ ALL_STAGES = [
     ("pruner", "5. Pruner (AttnRAG)", "05"),
     ("generator", "6. Generator & Critic", "06"),
 ]
+
+# Rich empty-state shown inside the chat canvas before the first query,
+# so the synthesis stream reads as an invitation rather than a black void.
+WELCOME_PLACEHOLDER = (
+    "<div class='cr-welcome'>"
+    "<div class='cr-welcome-glyph'>"
+    "<svg width='30' height='30' viewBox='0 0 24 24' fill='none' stroke='currentColor' "
+    "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>"
+    "<circle cx='12' cy='12' r='3'/><path d='M3 12h3M18 12h3M12 3v3M12 18v3'/>"
+    "<circle cx='12' cy='12' r='9' stroke-opacity='0.35'/></svg>"
+    "</div>"
+    "<div class='cr-welcome-title'>Synthesis Stream</div>"
+    "<div class='cr-welcome-sub'>Ask a question about your ingested AI literature. "
+    "Aletheia routes it through the six-node pipeline — retrieval, evidence scoring, "
+    "AttentionRAG compression and a Critic audit — then streams a cited synthesis here.</div>"
+    "<div class='cr-welcome-hints'>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#FF570A'></span>Hybrid RRF retrieval</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#3B82F6'></span>100-pt evidence rubric</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#00F2A5'></span>Zero-hallucination Critic</span>"
+    "</div>"
+    "</div>"
+)
 
 
 def _ensure_state(state: Any) -> AletheiaState | None:
@@ -577,7 +942,7 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
             "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Compression Ratio</div></div>"
             "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>0.0s</div><div class='metric-label'>Latency</div></div>"
             "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>The Critic QA</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Est. Cost</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Token Cost</div></div>"
             "</div>"
         )
 
@@ -986,10 +1351,48 @@ def stream_query_pipeline(
 #  Gradio UI Layout Construction (Precision Research Console)
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _build_theme() -> "gr.themes.Base":
+    """Dark design-system theme so Gradio's own components (inputs, buttons,
+    blocks) render on dark surfaces at the source — the custom CSS then layers
+    the CodeRabbit brand aesthetic on top."""
+    theme = gr.themes.Base(
+        primary_hue=gr.themes.colors.orange,
+        secondary_hue=gr.themes.colors.blue,
+        neutral_hue=gr.themes.colors.slate,
+        font=(gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"),
+        font_mono=(gr.themes.GoogleFont("JetBrains Mono"), "ui-monospace", "monospace"),
+    ).set(
+        body_background_fill="#090a0f",
+        body_background_fill_dark="#090a0f",
+        body_text_color="#F8FAFC",
+        background_fill_primary="rgba(16, 18, 26, 0.75)",
+        background_fill_secondary="rgba(20, 24, 36, 0.6)",
+        block_background_fill="rgba(16, 18, 26, 0.6)",
+        block_border_color="rgba(255, 255, 255, 0.07)",
+        block_label_background_fill="rgba(20, 24, 36, 0.6)",
+        block_label_text_color="#94A3B8",
+        border_color_primary="rgba(255, 255, 255, 0.08)",
+        input_background_fill="rgba(16, 18, 26, 0.85)",
+        input_background_fill_focus="rgba(20, 24, 36, 0.95)",
+        input_border_color="rgba(255, 255, 255, 0.10)",
+        input_border_color_focus="rgba(255, 87, 10, 0.55)",
+        input_placeholder_color="#64748B",
+        button_secondary_background_fill="rgba(20, 24, 36, 0.9)",
+        button_secondary_background_fill_hover="rgba(27, 31, 44, 0.95)",
+        button_secondary_text_color="#CBD5E1",
+        button_secondary_border_color="rgba(255, 255, 255, 0.10)",
+        color_accent_soft="rgba(255, 87, 10, 0.12)",
+    )
+    return theme
+
+
 def create_ui() -> gr.Blocks:
     """Construct the precision research console web app for Project Aletheia."""
 
-    with gr.Blocks(title="Project Aletheia — Autonomous AI Research") as demo:
+    with gr.Blocks(
+        title="Project Aletheia — Autonomous AI Research",
+        theme=_build_theme(),
+    ) as demo:
         # Injected Custom Design System CSS
         gr.HTML(f"<style>{CUSTOM_CSS}</style>")
 
@@ -1035,22 +1438,27 @@ def create_ui() -> gr.Blocks:
             with gr.Column(scale=7):
                 chatbot = gr.Chatbot(
                     label="Synthesis Stream & Verification Trace",
-                    height=530,
+                    height=460,
                     elem_id="aletheia-chatbot",
                     layout="bubble",
+                    show_label=False,
+                    placeholder=WELCOME_PLACEHOLDER,
                 )
 
-                with gr.Row():
+                with gr.Row(elem_classes=["cr-composer-row"]):
                     query_input = gr.Textbox(
-                        placeholder="Query academic literature (e.g. 'How does AttentionRAG compress context while preserving citation fidelity?')...",
+                        placeholder="Ask the research console  —  e.g. How does AttentionRAG compress context while preserving citation fidelity?",
                         lines=2,
+                        max_lines=6,
                         scale=9,
                         label="Literature Query",
                         show_label=False,
+                        elem_id="cr-query-input",
+                        autofocus=True,
                     )
-                    submit_btn = gr.Button("Run Synthesis ➔", variant="primary", scale=3)
+                    submit_btn = gr.Button("Run Synthesis", variant="primary", scale=3, elem_id="cr-submit-btn")
 
-                with gr.Row():
+                with gr.Row(elem_classes=["cr-composer-actions"]):
                     clear_btn = gr.Button("Reset Conversation", variant="secondary", size="sm")
 
                 # Verified Research Query Presets
@@ -1062,7 +1470,8 @@ def create_ui() -> gr.Blocks:
                         "How does The Critic audit draft answers against passage provenance?",
                     ],
                     inputs=query_input,
-                    label="Research Query Presets",
+                    label="Try a research query",
+                    elem_id="cr-examples",
                 )
 
             # Right Column: Review Scorecard & Multi-Source Breakdown
@@ -1080,8 +1489,9 @@ def create_ui() -> gr.Blocks:
                         with gr.Tabs(elem_id="sources-tabs"):
                             with gr.Tab("Neo4j Ontology"):
                                 sources_neo4j = gr.Markdown(
-                                    value="*(Run a query to inspect Neo4j ontology and fact triples)*",
+                                    value=format_neo4j_markdown(None),
                                     label="Neo4j Knowledge Graph Triples",
+                                    elem_id="cr-graph-preview",
                                 )
                             with gr.Tab("FAISS Dense"):
                                 sources_faiss = gr.Markdown(
@@ -1108,7 +1518,7 @@ def create_ui() -> gr.Blocks:
                             elem_id="cr-file-uploader",
                         )
                         with gr.Row():
-                            ingest_btn = gr.Button("Ingest Papers into Memory ➔", variant="primary", scale=8)
+                            ingest_btn = gr.Button("Ingest Papers into Memory", variant="primary", scale=8)
                             wipe_btn = gr.Button("Wipe All Memory", variant="stop", scale=4)
 
                         # ── Autonomous ArXiv Watcher Controls ──────────────────
@@ -1127,7 +1537,7 @@ def create_ui() -> gr.Blocks:
                                     label="Max Papers",
                                     scale=4,
                                 )
-                            arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers ➔", variant="secondary")
+                            arxiv_btn = gr.Button("Fetch & Ingest Trending ArXiv Papers", variant="secondary")
 
                         ingest_status = gr.HTML(
                             value=render_ingest_status_html(None),
