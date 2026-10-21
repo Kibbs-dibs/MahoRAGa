@@ -53,6 +53,7 @@ def run_benchmark(dataset: List[EvalSample] = BENCHMARK_DATASET) -> Dict[str, An
             generation=GenerationState(),
         )
 
+        pipeline_error: str | None = None
         try:
             final_state_raw = run_aletheia_pipeline(initial_state)
             if isinstance(final_state_raw, AletheiaState):
@@ -62,15 +63,22 @@ def run_benchmark(dataset: List[EvalSample] = BENCHMARK_DATASET) -> Dict[str, An
         except Exception as exc:
             logger.error("Pipeline failure on sample %s: %s", sample.sample_id, exc)
             final_state = initial_state
+            pipeline_error = str(exc)
 
         elapsed = time.time() - start_t
 
-        answer = (final_state.generation.draft_answer if final_state.generation else "") or sample.reference_answer
+        # Honest scoring: use the actual generated draft (possibly empty). Never
+        # substitute the ground-truth reference answer — scoring the reference
+        # against itself inflates faithfulness/relevance and hides real failures.
+        answer = (final_state.generation.draft_answer if final_state.generation else "") or ""
+        generation_failed = pipeline_error is not None or not answer.strip()
         retrieved_contexts = (
             (final_state.memory.vector_chunks or [])
             + (final_state.memory.lexical_chunks or [])
             + (final_state.memory.serialized_graph_triples or [])
         )
+        # Fall back to the (possibly empty) answer when no pruned prompt exists.
+        # An empty answer yields empty context — the honest outcome for a failure.
         pruned_context = (final_state.compression.final_pruned_prompt if final_state.compression else "") or answer
 
         scorecard = calculate_ragas_scorecard(
@@ -90,6 +98,9 @@ def run_benchmark(dataset: List[EvalSample] = BENCHMARK_DATASET) -> Dict[str, An
             "evidence_rubric": final_state.evaluation.rubric_score if final_state.evaluation else 0,
             "compression_ratio": final_state.compression.compression_ratio if final_state.compression else 1.0,
             "critic_verdict": final_state.generation.critic_feedback if final_state.generation else "Approved",
+            "answer": answer,
+            "generation_failed": generation_failed,
+            "pipeline_error": pipeline_error,
             **scorecard,
         })
 

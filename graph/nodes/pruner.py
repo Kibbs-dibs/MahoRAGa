@@ -7,6 +7,9 @@ Responsibilities
 • Segments retrieved context into micro-windows (50–300 tokens / 200–1200 chars).
 • Computes multi-layer attention / semantic relevance scores across micro-windows.
 • Prunes low-relevance sentences to achieve up to 6.3x compression while preserving citations.
+• Consumes the retriever's RRF-fused, cross-encoder-reranked ``fused_chunks``
+  first (deduplicated against the per-layer fields) so hybrid fusion actually
+  influences the pruned context and the generated answer.
 • Populates CompressionState directly within AletheiaState.
 
 This node implements direct state manipulation as specified in Approach 1.
@@ -213,19 +216,48 @@ def pruner_node(state: AletheiaState) -> AletheiaState:
             state.compression = CompressionState()
 
         # ── 1. Assemble raw retrieved context ──────────────────────────
+        # The RRF-fused, cross-encoder-reranked chunks (``fused_chunks``) are
+        # placed first so their ranking influences pruning: the per-layer
+        # sections that follow are deduplicated against the fused texts so no
+        # chunk is counted twice. This is the end-to-end consumer of the
+        # retriever's fusion — without it the fusion would have no effect on
+        # the generated answer.
         context_parts: List[str] = []
 
+        fused_chunks = (
+            state.memory.fused_chunks if state.memory else []
+        ) or []
+        # Texts already surfaced via fusion; used to dedup the per-layer dumps.
+        fused_seen = {chunk for chunk in fused_chunks if chunk}
+
+        if fused_chunks:
+            context_parts.append("=== Fused & Reranked Evidence ===")
+            context_parts.extend(fused_chunks)
+
         if state.memory and state.memory.serialized_graph_triples:
-            context_parts.append("=== Knowledge Graph Triples ===")
-            context_parts.extend(state.memory.serialized_graph_triples)
+            graph_unique = [
+                t for t in state.memory.serialized_graph_triples
+                if t not in fused_seen
+            ]
+            if graph_unique:
+                context_parts.append("=== Knowledge Graph Triples ===")
+                context_parts.extend(graph_unique)
 
         if state.memory and state.memory.vector_chunks:
-            context_parts.append("=== Dense Vector Chunks ===")
-            context_parts.extend(state.memory.vector_chunks)
+            vector_unique = [
+                c for c in state.memory.vector_chunks if c not in fused_seen
+            ]
+            if vector_unique:
+                context_parts.append("=== Dense Vector Chunks ===")
+                context_parts.extend(vector_unique)
 
         if state.memory and state.memory.lexical_chunks:
-            context_parts.append("=== Lexical Chunks ===")
-            context_parts.extend(state.memory.lexical_chunks)
+            lexical_unique = [
+                c for c in state.memory.lexical_chunks if c not in fused_seen
+            ]
+            if lexical_unique:
+                context_parts.append("=== Lexical Chunks ===")
+                context_parts.extend(lexical_unique)
 
         if state.memory and state.memory.external_api_abstracts:
             context_parts.append("=== External API Abstracts ===")

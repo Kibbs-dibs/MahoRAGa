@@ -319,9 +319,8 @@ class LiveIngestionService:
                     client.upsert_document(
                         doc_id=doc.doc_id,
                         title=doc.title,
-                        url=doc.file_path,
                         authors=doc.authors,
-                        publication_year=doc.year,
+                        year=doc.year,
                     )
 
                 for c in new_chunks:
@@ -354,7 +353,14 @@ class LiveIngestionService:
                         if fact.chunk_id:
                             client.link_fact_to_passage(fact.fact_id, fact.chunk_id)
         except Exception as exc:
-            logger.warning("Neo4j offline or unreachable during live ingest: %s", exc)
+            # Degrade gracefully when Neo4j is genuinely offline/unreachable, but
+            # surface real programming errors (TypeError/AttributeError, bad call
+            # signatures, etc.) via a full traceback so they are not silently hidden.
+            logger.error(
+                "Neo4j sync failed during live ingest (degrading to offline): %s",
+                exc,
+                exc_info=True,
+            )
             neo4j_status = "offline"
 
         # 6. Update & Persist Catalog
@@ -421,8 +427,14 @@ class LiveIngestionService:
         try:
             from memory.neo4j_client import Neo4jClient
             with Neo4jClient() as client:
-                client.execute_query("MATCH (n) DETACH DELETE n")
+                client.clear_all()  # MATCH (n) DETACH DELETE n
         except Exception as exc:
+            # Degrade gracefully when Neo4j is genuinely offline/unreachable, but
+            # surface real programming errors via a full traceback so they are not
+            # silently hidden behind the degraded status string.
+            logger.error(
+                "Neo4j wipe failed (degrading to skipped): %s", exc, exc_info=True
+            )
             neo4j_status = f"skipped ({exc})"
 
         # 5. Reset Catalog
