@@ -484,6 +484,202 @@ code, pre, .cr-mono {
     margin-top: 10px;
     margin-bottom: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ELEVATION LAYER — Premium depth, glassmorphism & micro-animation refinements
+   (Overrides flat surfaces from the base layer above; aligned with the
+   modern-ui-designer skill: layered radial canvas, glass cards, pulse glows.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Ambient canvas: subtle multi-point radial glow instead of a flat void */
+body, .gradio-container {
+    background:
+        radial-gradient(900px circle at 12% -8%, rgba(255, 87, 10, 0.07), transparent 42%),
+        radial-gradient(1000px circle at 100% 0%, rgba(59, 130, 246, 0.06), transparent 46%),
+        radial-gradient(1200px circle at 50% 120%, rgba(0, 242, 165, 0.045), transparent 50%),
+        #090a0f !important;
+    background-attachment: fixed !important;
+}
+
+.gradio-container { max-width: 1480px !important; margin: 0 auto !important; }
+
+/* Shared smooth easing for all interactive surfaces */
+.cr-header-card, .metric-card, .cr-score-card, .cr-doc-card,
+.stepper-container, .cr-stepper-box, .gr-button-primary, button.primary,
+.gr-button-secondary, #workspace-tabs > .tab-nav button {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Header — glass surface with an accent top hairline */
+.cr-header-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(22, 26, 38, 0.72), rgba(14, 16, 24, 0.72)) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+    overflow: hidden;
+}
+.cr-header-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cr-orange) 20%, var(--cr-mint) 55%, var(--cr-cobalt) 85%, transparent);
+    opacity: 0.8;
+}
+
+.cr-brand-glyph {
+    background: linear-gradient(145deg, #1b1f2c, #121521) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+.cr-brand-glyph:hover {
+    color: var(--cr-orange) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(255, 87, 10, 0.25) !important;
+    transform: translateY(-1px);
+}
+
+/* Live pulse dot — soft breathing glow for "online" status */
+.cr-pulse-dot { animation: crPulseGlow 2.4s ease-in-out infinite; }
+@keyframes crPulseGlow {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(0, 242, 165, 0.65); }
+    50% { opacity: 0.55; box-shadow: 0 0 2px rgba(0, 242, 165, 0.2); }
+}
+
+/* Stepper — glass tray */
+.stepper-container, .cr-stepper-box {
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.66), rgba(14, 16, 24, 0.66)) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3) !important;
+}
+/* Active pipeline node breathes while running */
+.step-active {
+    animation: crStepBreath 1.8s ease-in-out infinite;
+    box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18) !important;
+}
+@keyframes crStepBreath {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18); }
+    50% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.45), 0 6px 20px rgba(255, 87, 10, 0.32); }
+}
+
+/* Metric scorecards — glass with accent top edge + lift on hover */
+.metric-card, .cr-score-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.6), rgba(14, 16, 24, 0.6)) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28) !important;
+    overflow: hidden;
+}
+.metric-card::after, .cr-score-card::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cr-orange), rgba(255, 87, 10, 0));
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.metric-card:hover, .cr-score-card:hover {
+    border-color: rgba(255, 87, 10, 0.35) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(255, 87, 10, 0.12) !important;
+}
+.metric-card:hover::after, .cr-score-card:hover::after { opacity: 0.9; }
+.metric-value, .cr-score-val { font-variant-numeric: tabular-nums; }
+
+/* Chatbot canvas — subtle inner gradient + deeper shadow */
+.gradio-chatbot, #aletheia-chatbot {
+    background: linear-gradient(180deg, rgba(14, 16, 24, 0.9), rgba(9, 10, 15, 0.9)) !important;
+    border: 1px solid var(--cr-border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Primary button — gradient ember with lift + press feedback */
+.gr-button-primary, button.primary {
+    background: linear-gradient(180deg, #FF6A24, #FF570A) !important;
+    border: 1px solid rgba(255, 150, 90, 0.35) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 6px 18px rgba(255, 87, 10, 0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+.gr-button-primary:hover, button.primary:hover {
+    background: linear-gradient(180deg, #FF7A3A, #FF6117) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 10px 26px rgba(255, 87, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+}
+.gr-button-primary:active, button.primary:active { transform: scale(0.98) !important; }
+
+/* Secondary button — press feedback */
+.gr-button-secondary:active { transform: scale(0.98) !important; }
+
+/* Text inputs — focus ring in brand coral */
+textarea, input[type="text"], .gr-box textarea {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+textarea:focus, input[type="text"]:focus {
+    border-color: rgba(255, 87, 10, 0.55) !important;
+    box-shadow: 0 0 0 3px rgba(255, 87, 10, 0.14) !important;
+    outline: none !important;
+}
+
+/* Workspace tabs — glass tray + animated selected underline */
+#workspace-tabs > .tab-nav {
+    background: rgba(18, 22, 34, 0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+#workspace-tabs > .tab-nav button.selected {
+    background: linear-gradient(180deg, #1b1f2c, #14171f) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Document cards — glass + lift on hover */
+.cr-doc-card {
+    background: linear-gradient(180deg, rgba(20, 24, 36, 0.55), rgba(15, 17, 26, 0.55)) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+.cr-doc-card:hover {
+    border-color: rgba(255, 87, 10, 0.3) !important;
+    transform: translateX(2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Refined scrollbars inside document/source panels */
+.cr-doc-list::-webkit-scrollbar { width: 8px; }
+.cr-doc-list::-webkit-scrollbar-track { background: transparent; }
+.cr-doc-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+.cr-doc-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 87, 10, 0.4); }
+
+/* Badges lift slightly on hover for tactility */
+.cr-badge-pill { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.cr-doc-card:hover .cr-badge-orange { box-shadow: 0 0 10px rgba(255, 87, 10, 0.25); }
+
+/* Accordion & file-drop surfaces inherit the glass treatment */
+#cr-file-uploader {
+    border: 1px dashed var(--cr-border) !important;
+    border-radius: 10px !important;
+    transition: border-color 0.2s ease, background 0.2s ease !important;
+}
+#cr-file-uploader:hover {
+    border-color: rgba(255, 87, 10, 0.4) !important;
+    background: rgba(255, 87, 10, 0.03) !important;
+}
+
+/* Respect reduced-motion preferences for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .cr-pulse-dot, .step-active { animation: none !important; }
+    .gr-button-primary, button.primary, .metric-card, .cr-doc-card { transition: none !important; }
+}
 """
 
 # ═══════════════════════════════════════════════════════════════════════════
