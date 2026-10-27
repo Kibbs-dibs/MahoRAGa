@@ -86,9 +86,13 @@ def test_critic_audit_validation():
     answer_with_cites = "BERT utilizes masked language modeling [Devlin et al., 2018]."
     answer_without_cites = "BERT is a great model without any source citation."
 
-    passed_cited, _, _ = _run_critic_audit(context, answer_with_cites)
+    passed_cited, _, _, conf_cited, spans_cited = _run_critic_audit(context, answer_with_cites)
     assert passed_cited is True
+    assert 0.0 <= conf_cited <= 1.0
+    assert isinstance(spans_cited, list)
 
-    passed_uncited, feedback, _ = _run_critic_audit(context, answer_without_cites)
+    passed_uncited, feedback, _, conf_uncited, spans_uncited = _run_critic_audit(context, answer_without_cites)
     assert passed_uncited is False
     assert feedback is not None
+    assert 0.0 <= conf_uncited <= 1.0
+    assert isinstance(spans_uncited, list)

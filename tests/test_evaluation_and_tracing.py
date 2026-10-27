@@ -29,8 +29,13 @@ from evaluation.benchmark import format_markdown_scorecard, run_benchmark
 
 @pytest.fixture(scope="module")
 def client():
-    """Create FastAPI TestClient."""
-    with TestClient(app) as test_client:
+    """Create FastAPI TestClient (auth-aware for gated write routes)."""
+    from core.config import settings
+
+    headers = {}
+    if settings.aletheia_api_key:
+        headers["Authorization"] = f"Bearer {settings.aletheia_api_key}"
+    with TestClient(app, headers=headers) as test_client:
         yield test_client
 
 

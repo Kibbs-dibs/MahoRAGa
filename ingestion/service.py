@@ -167,10 +167,31 @@ class LiveIngestionService:
         update_progress(0.05, "Validating uploaded files...")
 
         # 1. Validation & Deduplication
+        max_bytes = getattr(settings, "max_upload_bytes", 25 * 1024 * 1024)
         for raw_p in file_paths:
             path = Path(raw_p)
             if not path.is_file() or path.suffix.lower() != ".pdf":
                 logger.warning("Skipping invalid or non-PDF file: %s", path)
+                continue
+
+            # Defense in depth: this service is also reached directly from the UI
+            # and the arXiv watcher (not only the REST ingest route), so validate
+            # size and the %PDF magic bytes here too rather than trusting callers.
+            try:
+                file_size = path.stat().st_size
+            except OSError:
+                logger.warning("Skipping unreadable file: %s", path)
+                continue
+            if file_size > max_bytes:
+                logger.warning("Skipping oversized file (%d bytes): %s", file_size, path.name)
+                continue
+            try:
+                with open(path, "rb") as _fh:
+                    if not _fh.read(5).startswith(b"%PDF"):
+                        logger.warning("Skipping file without %%PDF header: %s", path.name)
+                        continue
+            except OSError:
+                logger.warning("Skipping unreadable file: %s", path)
                 continue
 
             file_hash = self.compute_file_md5(path)
@@ -212,6 +233,7 @@ class LiveIngestionService:
         new_chunks: List[Chunk] = []
         new_extractions: List[ExtractionResult] = []
         processed_records: List[Dict[str, Any]] = []
+        failed_records: List[Dict[str, Any]] = []
 
         total_files = len(valid_files)
         for idx, (pdf_path, md5_hash) in enumerate(valid_files, 1):
@@ -219,9 +241,16 @@ class LiveIngestionService:
             file_ratio_mid = file_ratio_start + 0.2 / total_files
             update_progress(file_ratio_start, f"[{idx}/{total_files}] Parsing {pdf_path.name}...")
 
-            # Copy to persistent data/uploads/
-            safe_name = pdf_path.name
+            # Copy to persistent data/uploads/. Use ONLY the basename so no
+            # directory components in the source name can escape uploads_dir,
+            # and assert the resolved destination stays inside uploads_dir
+            # (belt-and-braces against path traversal).
+            safe_name = Path(pdf_path.name).name
             dest_path = self.uploads_dir / safe_name
+            uploads_root = self.uploads_dir.resolve()
+            if uploads_root not in dest_path.resolve().parents and dest_path.resolve() != uploads_root:
+                logger.warning("Refusing upload path outside uploads dir: %s", dest_path)
+                continue
             # If a file with the same name exists, prepend timestamp
             if dest_path.exists() and dest_path != pdf_path:
                 dest_path = self.uploads_dir / f"{int(datetime.now().timestamp())}_{safe_name}"
@@ -259,8 +288,23 @@ class LiveIngestionService:
 
             except Exception as exc:
                 logger.error("Failed to parse %s: %s", pdf_path.name, exc, exc_info=True)
+                # Record the failure so the doc can be surfaced and re-ingested
+                # later instead of being silently lost (Feature 6.3).
+                failed_records.append({
+                    "filename": pdf_path.name,
+                    "source_path": str(pdf_path),
+                    "md5_hash": md5_hash,
+                    "error": str(exc),
+                    "failed_at": datetime.now(timezone.utc).isoformat(),
+                })
 
         if not new_chunks:
+            # Persist failures so an all-fail batch is still retryable (Feature 6.3).
+            if failed_records:
+                succeeded_names = set()
+                prior_failed = [f for f in catalog.get("failed_docs", []) if f.get("filename") not in succeeded_names]
+                catalog["failed_docs"] = prior_failed + failed_records
+                self._save_catalog(catalog)
             return {
                 "status": "error",
                 "ingested_count": 0,
@@ -270,6 +314,7 @@ class LiveIngestionService:
                 "total_chunks": catalog["total_chunks"],
                 "neo4j_status": "skipped",
                 "message": "Failed to extract readable text passages from uploaded PDFs.",
+                "failed_docs": len(failed_records),
                 "catalog": catalog,
             }
 
@@ -361,20 +406,36 @@ class LiveIngestionService:
         update_progress(0.98, "Updating corpus catalog...")
         catalog["documents"].extend(processed_records)
         catalog["total_documents"] = len(catalog["documents"])
-        catalog["total_chunks"] = len(catalog["documents"]) and sum(d.get("chunk_count", 0) for d in catalog["documents"])
+        catalog["total_chunks"] = sum(d.get("chunk_count", 0) for d in catalog["documents"])
+        # Track docs that failed to parse so they can be re-ingested (Feature 6.3).
+        # Drop any now-succeeded filenames from the prior failed list, then add new ones.
+        succeeded_names = {r.get("filename") for r in processed_records}
+        prior_failed = [f for f in catalog.get("failed_docs", []) if f.get("filename") not in succeeded_names]
+        catalog["failed_docs"] = prior_failed + failed_records
         self._save_catalog(catalog)
 
         update_progress(1.0, "Ingestion complete!")
 
+        # Report honestly: the dense + lexical layers succeeded, but if the graph
+        # layer did not sync the overall result is PARTIAL, not full success (Issue 21).
+        graph_synced = neo4j_status == "synced"
+        overall_status = "success" if graph_synced else "partial_success"
+
         summary_msg = (
-            f"Successfully ingested {len(ingested_docs)} document(s) "
-            f"(+{len(new_chunks)} chunks). Total corpus: {catalog['total_documents']} papers ({catalog['total_chunks']} chunks)."
+            f"Ingested {len(ingested_docs)} document(s) "
+            f"(+{len(new_chunks)} chunks) into FAISS + BM25. "
+            f"Total corpus: {catalog['total_documents']} papers ({catalog['total_chunks']} chunks)."
         )
+        if not graph_synced:
+            summary_msg += (
+                f" ⚠ Knowledge-graph layer NOT updated (Neo4j status: {neo4j_status}); "
+                f"vector/lexical search is available but graph queries are incomplete."
+            )
         if skipped_duplicates:
             summary_msg += f" Skipped {len(skipped_duplicates)} duplicate file(s)."
 
         return {
-            "status": "success",
+            "status": overall_status,
             "ingested_count": len(ingested_docs),
             "skipped_duplicates": len(skipped_duplicates),
             "new_chunks": len(new_chunks),
@@ -384,6 +445,28 @@ class LiveIngestionService:
             "message": summary_msg,
             "catalog": catalog,
         }
+
+    # ── Failed-doc retry (Feature 6.3) ──────────────────────────────────
+
+    def retry_failed(self) -> Dict[str, Any]:
+        """Re-ingest documents recorded as failed in a prior run.
+
+        Reads catalog['failed_docs'], re-attempts ingestion from each still-present
+        source path, and lets ingest_files refresh the failed list (succeeded docs
+        drop off, persistent failures remain). Returns the ingest summary.
+        """
+        catalog = self.ensure_catalog_initialized()
+        failed = catalog.get("failed_docs", [])
+        paths = [f.get("source_path") for f in failed if f.get("source_path") and os.path.isfile(f.get("source_path"))]
+        if not paths:
+            return {
+                "status": "no_failed",
+                "ingested_count": 0,
+                "message": "No re-ingestable failed documents found.",
+                "remaining_failed": len(failed),
+            }
+        logger.info("Retrying %d previously-failed document(s)", len(paths))
+        return self.ingest_files(paths)
 
     # ── Memory Wipe ─────────────────────────────────────────────────────
 

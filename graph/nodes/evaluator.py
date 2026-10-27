@@ -17,11 +17,12 @@ This node implements direct state manipulation as specified in Approach 1.
 
 from __future__ import annotations
 
-from core.state import AletheiaState, EvaluationState
+from core.state import AletheiaState, EvaluationState, MemoryState, QueryState
 from core.config import settings
 from core.exceptions import AletheiaError
 import logging
 import re
+from typing import List
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,18 @@ def evaluator_node(state: AletheiaState) -> AletheiaState:
         )
 
         # Determine if evidence is weak (triggers external search)
-        state.evaluation.is_evidence_weak = state.evaluation.rubric_score < settings.evidence_threshold
+        threshold = (
+            state.evidence_threshold_override
+            if state.evidence_threshold_override is not None
+            else settings.evidence_threshold
+        )
+        # Route-aware adjustment (Feature 2.2): content/bibliometric queries demand
+        # strong internal evidence; trend/current_world tolerate a lower bar (they
+        # lean on recency / are out-of-domain), so lower the threshold for them.
+        route = (state.query.route if state.query else None) or "content"
+        if route in ("trend", "current_world"):
+            threshold = max(0, threshold - 20)
+        state.evaluation.is_evidence_weak = state.evaluation.rubric_score < threshold
 
         logger.info(
             f"Evidence evaluation complete: {state.evaluation.rubric_score}/100 "
@@ -114,12 +126,21 @@ def _score_retrieval_confidence(memory: MemoryState) -> int:
         layers_with_results += 1
     if memory.lexical_chunks and len(memory.lexical_chunks) > 0:
         layers_with_results += 1
+    # External API abstracts count as an evidence layer too, so re-scoring after
+    # external search reflects the newly fetched results (Issue 11).
+    if getattr(memory, "external_api_abstracts", None) and len(memory.external_api_abstracts) > 0:
+        layers_with_results += 1
 
     # 5 points per layer with results, up to 15 points
     score += min(layers_with_results * 5, 15)
 
     # Points for quantity of results (up to 25 points)
-    total_results = len(memory.serialized_graph_triples) + len(memory.vector_chunks) + len(memory.lexical_chunks)
+    total_results = (
+        len(memory.serialized_graph_triples)
+        + len(memory.vector_chunks)
+        + len(memory.lexical_chunks)
+        + len(getattr(memory, "external_api_abstracts", []) or [])
+    )
 
     # Scale: 0 results = 0 points, 5+ results = 25 points
     if total_results >= 5:
@@ -175,6 +196,26 @@ def _score_answer_specificity(query_state: QueryState, memory: MemoryState) -> i
     # Average specificity across layers that have results
     if specificity_scores:
         avg_specificity = sum(specificity_scores) / len(specificity_scores)
+
+        # Feature 2.1: blend in true semantic similarity (query embedding vs the
+        # retrieved chunk embeddings) so specificity reflects meaning, not just
+        # lexical term overlap. Graceful fallback to the Jaccard average offline.
+        try:
+            from core.config import settings as _settings
+            if getattr(_settings, "semantic_pruning", True):
+                from memory.vector_store import VectorStore
+                chunks = (list(memory.serialized_graph_triples) + list(memory.vector_chunks)
+                          + list(memory.lexical_chunks))[:20]
+                if chunks:
+                    enc = VectorStore().encode
+                    qv = enc([query_text])[0]
+                    cv = enc(chunks)
+                    sims = cv @ qv  # cosine (L2-normalised)
+                    sem = float(max(0.0, min(1.0, sum(sims) / len(sims))))
+                    avg_specificity = 0.4 * avg_specificity + 0.6 * sem
+        except Exception as exc:
+            logger.debug(f"Semantic specificity unavailable, lexical-only: {exc}")
+
         score = int(avg_specificity * max_score)
         score = min(score, max_score)  # Cap at max
 
@@ -261,26 +302,33 @@ def _score_recency(memory: MemoryState) -> int:
     )
 
     if all_results:
-        # Basic points for having any results (assumes some recency)
-        score += 5
+        # Base points for having any results.
+        score += 3
 
-        # Additional points if content seems to contain recent terminology
-        recent_indicators = [
-            '2023', '2024', '2025', '2026',  # Recent years
-            'latest', 'recent', 'new', 'emerging', 'current',
-            'state-of-the-art', 'cutting-edge', 'novel'
-        ]
+        combined_text = ' '.join(all_results)
 
-        combined_text = ' '.join(all_results).lower()
-        recent_matches = sum(1 for indicator in recent_indicators if indicator in combined_text)
+        # Primary signal: the most recent plausible publication year actually present
+        # in the retrieved text, scored by how close it is to the current year
+        # (Feature 2.1 — replaces the fixed keyword list with real date reasoning).
+        from datetime import datetime as _dt
+        current_year = _dt.now().year
+        years = [int(y) for y in re.findall(r"\b(19\d{2}|20\d{2})\b", combined_text)]
+        plausible = [y for y in years if 1990 <= y <= current_year + 1]
+        if plausible:
+            newest = max(plausible)
+            age = current_year - newest
+            if age <= 1:
+                score += 5      # this year / last year
+            elif age <= 3:
+                score += 3      # recent
+            elif age <= 6:
+                score += 1      # somewhat dated
+            # older than 6 years: no recency bonus
 
-        if recent_matches >= 2:
-            score += 3
-        elif recent_matches >= 1:
-            score += 2
-
-        # Bonus for multiple recent indicators
-        if recent_matches >= 4:
+        # Secondary, weaker signal: explicit recency language (kept as a small nudge).
+        recency_terms = ('latest', 'recent', 'emerging', 'state-of-the-art', 'cutting-edge', 'novel')
+        lowered = combined_text.lower()
+        if any(t in lowered for t in recency_terms):
             score += 2
 
     return min(score, max_score)

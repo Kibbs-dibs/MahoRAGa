@@ -13,6 +13,11 @@ class QueryState(BaseModel):
         default=None,
         description="The LLM-rewritten query optimized for technical retrieval."
     )
+    conversation_history: List[str] = Field(
+        default_factory=list,
+        description="Recent prior turns ('Q: ... / A: ...') for multi-turn follow-up "
+                    "context (Feature 7.4). Used by the generator, not for retrieval.",
+    )
 
 
 class MemoryState(BaseModel):
@@ -33,16 +38,33 @@ class MemoryState(BaseModel):
         default_factory=list,
         description="Vetted abstracts from Crossref, OpenAlex, and Semantic Scholar."
     )
+    fused_chunks: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Primary retrieval output (Feature 1.1): FAISS + BM25 (+ graph triples) "
+            "merged by Reciprocal Rank Fusion and cross-encoder re-ranked, in final "
+            "ranked order. Per-layer lists are kept for diagnostics/diversity scoring."
+        ),
+    )
+    degraded_layers: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Memory layers that FAILED or were unavailable during this retrieval "
+            "(e.g. 'neo4j', 'faiss', 'bm25'). Non-empty means the answer was produced "
+            "from a reduced evidence base; surfaced to the user as a degraded-state "
+            "warning so an unverified/partial answer is never mistaken for a full one."
+        ),
+    )
 
 
 class EvaluationState(BaseModel):
     """Tracks the 100-Point Evidence Sufficiency Rubric and agentic retry constraints."""
     rubric_score: int = Field(default=0, ge=0, le=100, description="Total evidence score.")
-    retrieval_confidence: int = Field(default=0, le=40)
-    answer_specificity: int = Field(default=0, le=25)
-    source_diversity: int = Field(default=0, le=15)
-    metadata_completeness: int = Field(default=0, le=10)
-    recency: int = Field(default=0, le=10)
+    retrieval_confidence: int = Field(default=0, ge=0, le=40)
+    answer_specificity: int = Field(default=0, ge=0, le=25)
+    source_diversity: int = Field(default=0, ge=0, le=15)
+    metadata_completeness: int = Field(default=0, ge=0, le=10)
+    recency: int = Field(default=0, ge=0, le=10)
 
     is_evidence_weak: bool = Field(
         default=True,
@@ -69,6 +91,11 @@ class CompressionState(BaseModel):
         default="",
         description="The high-density context passed to the Generator."
     )
+    source_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps citation source tags (e.g. 'S1') to the source text they refer "
+                    "to, enabling structured click-through citations (Feature 4.2).",
+    )
 
 
 class GenerationState(BaseModel):
@@ -77,6 +104,15 @@ class GenerationState(BaseModel):
     critic_feedback: Optional[str] = Field(
         default=None,
         description="Feedback from the Step 11 Quality Check."
+    )
+    critic_confidence: float = Field(
+        default=1.0,
+        ge=0.0, le=1.0,
+        description="Critic confidence the final answer is fully grounded (Feature 4.3).",
+    )
+    critic_spans: List[str] = Field(
+        default_factory=list,
+        description="Offending claim substrings the Critic flagged (Feature 4.3).",
     )
     retry_count: int = Field(
         default=0,
@@ -98,4 +134,20 @@ class AletheiaState(BaseModel):
     pipeline_cost: float = Field(
         default=0.0,
         description="Running total of LLM API costs."
+    )
+
+    # ── Per-request overrides (Issue 25) ────────────────────────────────
+    # When set, nodes prefer these over the global settings defaults, so the
+    # /api/v1/query request parameters actually take effect for that request.
+    evidence_threshold_override: Optional[float] = Field(
+        default=None,
+        description="Per-request rubric threshold; falls back to settings.evidence_threshold.",
+    )
+    max_compression_ratio_override: Optional[float] = Field(
+        default=None,
+        description="Per-request AttentionRAG ratio; falls back to settings.max_compression_ratio.",
+    )
+    enable_external_search: bool = Field(
+        default=True,
+        description="Per-request toggle for the external-search fallback edge.",
     )

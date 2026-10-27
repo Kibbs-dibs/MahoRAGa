@@ -40,7 +40,7 @@ class ParsedDocument(BaseModel):
     doc_id: str
     title: str
     authors: List[str] = Field(default_factory=list)
-    year: int = 2024
+    year: int = 0
     abstract: str = ""
     sections: List[ParsedSection] = Field(default_factory=list)
     total_pages: int = 0
@@ -60,6 +60,21 @@ def _clean_text(text: str) -> str:
     # Normalize multiple newlines and spaces
     text = re.sub(r"[ \t]+", " ", text)
     return text.strip()
+
+
+def _extract_year(text: str) -> Optional[int]:
+    """Best-effort publication-year extraction from page-1 text.
+
+    Looks for a 4-digit year in a plausible range (1900..current+1), preferring
+    the most recent plausible year found (handles copyright lines, arXiv dates).
+    Returns None when nothing plausible is present, so callers can mark it unknown
+    rather than inventing a value (Issue 34).
+    """
+    from datetime import datetime as _dt
+    current = _dt.now().year
+    candidates = [int(y) for y in re.findall(r"\b(19\d{2}|20\d{2})\b", text)]
+    plausible = [y for y in candidates if 1900 <= y <= current + 1]
+    return max(plausible) if plausible else None
 
 
 def parse_pdf(file_path: str | Path) -> ParsedDocument:
@@ -94,10 +109,32 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
     p1_text = page_1.get_text("text")
     p1_lines = [line.strip() for line in p1_text.splitlines() if line.strip()]
 
-    # First prominent line is typically title
-    title = p1_lines[0] if p1_lines else path.stem
-    if len(title) < 5 and len(p1_lines) > 1:
-        title = f"{title} {p1_lines[1]}"
+    # Title (Feature 6.2): prefer the PDF's embedded metadata title when it looks
+    # real (publishers often set it); otherwise fall back to the first prominent
+    # line of page 1.
+    meta_title = ""
+    try:
+        meta_title = (doc.metadata or {}).get("title", "") or ""
+        meta_title = re.sub(r"\s+", " ", meta_title).strip()
+    except Exception:
+        meta_title = ""
+
+    def _looks_like_real_title(t: str) -> bool:
+        # Reject empty, too-short, filename-ish, or boilerplate metadata titles.
+        if not t or len(t) < 8:
+            return False
+        low = t.lower()
+        if low.endswith(".pdf") or low in ("untitled", "microsoft word", "document"):
+            return False
+        return True
+
+    if _looks_like_real_title(meta_title):
+        title = meta_title
+    else:
+        # First prominent line is typically title
+        title = p1_lines[0] if p1_lines else path.stem
+        if len(title) < 5 and len(p1_lines) > 1:
+            title = f"{title} {p1_lines[1]}"
 
     # Extract authors (lines between title and Abstract)
     authors: List[str] = []
@@ -123,10 +160,12 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
     current_section_lines: List[str] = []
     current_section_page = 1
     abstract_text = ""
+    all_page_texts: List[str] = []  # full document text, for the no-section fallback (Issue 36)
 
     for page_num in range(1, total_pages + 1):
         page = doc[page_num - 1]
         text = page.get_text("text")
+        all_page_texts.append(text)
         lines = text.splitlines()
 
         for line in lines:
@@ -173,7 +212,7 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
 
     # Fallback if no sections were identified (e.g. single body)
     if not sections:
-        full_text = _clean_text(p1_text)
+        full_text = _clean_text("\n".join(all_page_texts))
         sections.append(
             ParsedSection(
                 section_name="Body",
@@ -189,11 +228,13 @@ def parse_pdf(file_path: str | Path) -> ParsedDocument:
         total_pages,
     )
 
+    pub_year = _extract_year(p1_text)
+
     return ParsedDocument(
         doc_id=doc_id,
         title=title,
         authors=authors[:5] if authors else ["Research Team"],
-        year=2024,
+        year=pub_year if pub_year is not None else 0,
         abstract=abstract_text,
         sections=sections,
         total_pages=total_pages,

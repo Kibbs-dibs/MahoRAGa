@@ -229,6 +229,24 @@ class VectorStore:
                 f"({len(texts)})."
             )
 
+        # Auto-align the index dimension to the actual embedder output (Feature 1.5):
+        # lets a higher-quality embedder (e.g. 768-d bge/gte) be configured without
+        # also hand-editing embedding_dim, as long as the index is empty.
+        emb_dim = int(embeddings.shape[1]) if embeddings.ndim == 2 else self._dim
+        if emb_dim != self._dim:
+            if self._index.ntotal == 0:
+                logger.warning(
+                    "Embedding dim %d != configured %d; rebuilding empty FAISS index at %d.",
+                    emb_dim, self._dim, emb_dim,
+                )
+                self._dim = emb_dim
+                self._index = faiss.IndexFlatIP(self._dim)
+            else:
+                raise VectorStoreError(
+                    f"Embedding dim {emb_dim} != existing index dim {self._dim}; "
+                    f"re-embed the corpus after changing the embedding model."
+                )
+
         self._index.add(embeddings)
         self._metadata.extend(metadatas)
 
@@ -250,9 +268,12 @@ class VectorStore:
                 f"Vector count ({vectors.shape[0]}) != metadata count "
                 f"({len(metadatas)})."
             )
-        # Normalise just in case caller forgot
+        # Cast to contiguous float32 FIRST, then normalise the exact array we add.
+        # (faiss.normalize_L2 mutates in place; normalising before the astype copy
+        #  would leave the added copy un-normalised for non-float32 input.)
+        vectors = np.ascontiguousarray(vectors.astype(np.float32))
         faiss.normalize_L2(vectors)
-        self._index.add(vectors.astype(np.float32))
+        self._index.add(vectors)
         self._metadata.extend(metadatas)
         return vectors.shape[0]
 

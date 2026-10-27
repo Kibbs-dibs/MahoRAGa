@@ -169,6 +169,13 @@ class LLMClient:
                         cost_usd=0.0,  # Local inference is free
                         parsed_json=parsed,
                     )
+                else:
+                    # e.g. 404 = model not pulled; distinguish from server-down (Issue 19).
+                    logger.warning(
+                        "Ollama backend returned non-200 %d: %s",
+                        r.status_code,
+                        r.text[:300],
+                    )
         except Exception as e:
             logger.debug(f"Ollama call failed or not running: {e}")
         return None
@@ -214,6 +221,13 @@ class LLMClient:
                         output_tokens=out_tok,
                         cost_usd=cost,
                         parsed_json=parsed,
+                    )
+                else:
+                    # Surface config/auth errors instead of silently falling through (Issue 19).
+                    logger.warning(
+                        "OpenAI backend returned non-200 %d: %s",
+                        r.status_code,
+                        r.text[:300],
                     )
         except Exception as e:
             logger.debug(f"OpenAI call failed: {e}")
@@ -349,14 +363,26 @@ class LLMClient:
         lines = [line.strip() for line in context.splitlines() if line.strip() and not line.startswith("===")]
         facts = lines[:4] if lines else [context[:150]] if context else ["No specific factual context was provided."]
 
+        # Build synthesis WITHOUT fabricating citations (Issue 18).
+        # Reuse any real bracketed marker already present in the source line;
+        # otherwise mark the line explicitly as unverified offline synthesis so
+        # downstream consumers (and the Critic) are not misled by fake [Ref-N] tags.
         synthesized = [
-            f"Based on the verified evidence regarding {query}:",
+            f"[OFFLINE SYNTHESIS — no LLM backend reachable; citations below are source spans, not verified references]",
+            f"Regarding {query}, the retrieved context indicates:",
             "",
         ]
-        for idx, fact in enumerate(facts, 1):
-            synthesized.append(f"- {fact} [Ref-{idx}, 2024]")
+        for fact in facts:
+            existing_cite = re.search(r"\[[^\]]+\]", fact)
+            if existing_cite:
+                synthesized.append(f"- {fact}")
+            else:
+                synthesized.append(f"- {fact} [unverified: offline synthesis]")
         synthesized.append("")
-        synthesized.append(f"In summary, the analyzed literature confirms these properties for {query} [Synthesized Evidence, 2024].")
+        synthesized.append(
+            f"Summary for {query} is derived from the retrieved context above "
+            f"and has NOT been verified by an LLM critic [unverified: offline synthesis]."
+        )
 
         content = "\n".join(synthesized)
         return LLMResponse(

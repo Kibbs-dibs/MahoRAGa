@@ -38,6 +38,24 @@ class QueryResponse(BaseModel):
     vector_chunks: List[str] = Field(default_factory=list)
     lexical_chunks: List[str] = Field(default_factory=list)
     external_abstracts: List[str] = Field(default_factory=list)
+    # Evidence transparency — per-component rubric breakdown (Feature 2.3)
+    evidence_breakdown: Dict[str, int] = Field(
+        default_factory=dict,
+        description="100-pt rubric sub-scores: retrieval_confidence, answer_specificity, "
+                    "source_diversity, metadata_completeness, recency.",
+    )
+    # Structured click-through citations (Feature 4.2): tag -> source text
+    source_map: Dict[str, str] = Field(default_factory=dict)
+    # Degraded-state transparency: which memory layers were unavailable, so the
+    # UI can warn that the answer came from a reduced evidence base.
+    degraded: bool = Field(
+        default=False,
+        description="True if one or more retrieval layers were unavailable for this query.",
+    )
+    degraded_layers: List[str] = Field(
+        default_factory=list,
+        description="Memory layers that failed/were unavailable (e.g. neo4j, faiss, bm25).",
+    )
 
 
 class MessageItem(BaseModel):

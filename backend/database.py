@@ -40,6 +40,26 @@ class DatabaseManager:
             self._local.conn = conn
         return self._local.conn
 
+    def close(self) -> None:
+        """Close and release the calling thread's SQLite connection (Issue 28).
+
+        Thread-local connections otherwise live for the thread's lifetime with no
+        teardown, leaking handles under worker-thread pools. Call from a worker's
+        shutdown / FastAPI lifespan, or rely on it in a context-manager exit.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            finally:
+                self._local.conn = None
+
+    def __enter__(self) -> "DatabaseManager":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
     def init_db(self) -> None:
         """Create database tables if they do not exist."""
         conn = self.get_connection()
@@ -160,10 +180,19 @@ class DatabaseManager:
         latency: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Insert a chat message into a session and update session timestamp."""
-        # Ensure session exists or create it
+        # Ensure session exists or create it with the SAME id (Issue 29).
+        # Previously this called create_session() which minted a *new* random id,
+        # leaving the message's session_id dangling and violating the FK.
         if not self.get_session(session_id):
             title = content[:40].strip() + ("..." if len(content) > 40 else "")
-            self.create_session(title=title)
+            now_ts = datetime.now(timezone.utc).isoformat()
+            conn = self.get_connection()
+            with conn:
+                conn.execute(
+                    "INSERT OR IGNORE INTO sessions (id, title, created_at, updated_at) "
+                    "VALUES (?, ?, ?, ?);",
+                    (session_id, title or "New Research Session", now_ts, now_ts),
+                )
 
         message_id = f"msg_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc).isoformat()
@@ -269,6 +298,47 @@ class DatabaseManager:
                 ),
             )
         return audit_id
+
+    def get_audit_summary(self) -> Dict[str, Any]:
+        """Aggregate observability metrics from query_audits (Feature 8.1).
+
+        Surfaces the data the pipeline already records: query volume, average
+        rubric/compression/latency, external-search hit rate, and
+        self-correction (regeneration) rate.
+        """
+        conn = self.get_connection()
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*)                                               AS total_queries,
+                COALESCE(AVG(rubric_score), 0)                         AS avg_rubric_score,
+                COALESCE(AVG(compression_ratio), 0)                    AS avg_compression_ratio,
+                COALESCE(AVG(total_latency), 0)                        AS avg_latency_seconds,
+                COALESCE(SUM(CASE WHEN external_count > 0 THEN 1 ELSE 0 END), 0) AS external_hits,
+                COALESCE(SUM(CASE WHEN critic_verdict LIKE '%Regenerated%'
+                                   OR critic_verdict LIKE '%Self-Corrected%' THEN 1 ELSE 0 END), 0) AS regenerations
+            FROM query_audits;
+            """
+        ).fetchone()
+        total = row["total_queries"] or 0
+
+        # Route distribution
+        routes = {}
+        for r in conn.execute(
+            "SELECT routing_decision AS route, COUNT(*) AS n FROM query_audits "
+            "WHERE routing_decision IS NOT NULL AND routing_decision != '' GROUP BY routing_decision;"
+        ).fetchall():
+            routes[r["route"]] = r["n"]
+
+        return {
+            "total_queries": total,
+            "avg_rubric_score": round(float(row["avg_rubric_score"]), 2),
+            "avg_compression_ratio": round(float(row["avg_compression_ratio"]), 2),
+            "avg_latency_seconds": round(float(row["avg_latency_seconds"]), 3),
+            "external_search_hit_rate": round((row["external_hits"] / total), 3) if total else 0.0,
+            "regeneration_rate": round((row["regenerations"] / total), 3) if total else 0.0,
+            "route_distribution": routes,
+        }
 
 
 # Default singleton instance

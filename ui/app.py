@@ -1004,7 +1004,9 @@ def format_neo4j_markdown(state: Any) -> str:
         "\n<div style='margin-top:14px; font-size:0.80rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--cr-orange);'>Active Knowledge Graph Triples</div>"
     ]
     for i, triple in enumerate(triples[:15], 1):
-        items.append(f"- `triple:{i:02d}` **{triple}**")
+        # Triples derive from ingested document content (untrusted) — escape
+        # before placing into markdown that Gradio renders as HTML (F4).
+        items.append(f"- `triple:{i:02d}` **{html.escape(str(triple))}**")
     return "\n".join(items)
 
 
@@ -1017,9 +1019,10 @@ def format_faiss_markdown(state: Any) -> str:
     items = []
     for i, chunk in enumerate(s.memory.vector_chunks[:5], 1):
         preview = chunk[:400].strip() + ("..." if len(chunk) > 400 else "")
+        # Retrieved chunk text is untrusted (from ingested PDFs) — escape it (F4).
         items.append(
             f"**Chunk #{i}:** `FAISS Dense Vector`  \n"
-            f"> {preview}\n"
+            f"> {html.escape(preview)}\n"
         )
     return "\n\n".join(items)
 
@@ -1033,9 +1036,10 @@ def format_bm25_markdown(state: Any) -> str:
     items = []
     for i, chunk in enumerate(s.memory.lexical_chunks[:5], 1):
         preview = chunk[:400].strip() + ("..." if len(chunk) > 400 else "")
+        # Retrieved chunk text is untrusted (from ingested PDFs) — escape it (F4).
         items.append(
             f"**Lexical Match #{i}:** `BM25Okapi Sparse`  \n"
-            f"> {preview}\n"
+            f"> {html.escape(preview)}\n"
         )
     return "\n\n".join(items)
 
@@ -1049,8 +1053,80 @@ def format_external_markdown(state: Any) -> str:
     items = []
     for i, abstract in enumerate(s.memory.external_api_abstracts[:5], 1):
         preview = abstract[:400].strip() + ("..." if len(abstract) > 400 else "")
-        items.append(f"**External Literature #{i}:**\n> {preview}\n")
+        # External API content is untrusted — escape before markdown render (F4).
+        items.append(f"**External Literature #{i}:**\n> {html.escape(preview)}\n")
     return "\n\n".join(items)
+
+
+def render_evidence_breakdown_html(
+    evidence_breakdown: Dict[str, int] | None = None,
+    critic_confidence: float | None = None,
+    source_map: Dict[str, str] | None = None,
+) -> str:
+    """Render evidence transparency (Feature 7.1): the 100-pt rubric sub-scores as
+    labeled bars, the critic confidence, and the click-through source map.
+
+    Theme-safe: uses currentColor / inherited colors so it reads in light or dark.
+    """
+    evidence_breakdown = evidence_breakdown or {}
+    source_map = source_map or {}
+
+    maxima = {
+        "retrieval_confidence": 40,
+        "answer_specificity": 25,
+        "source_diversity": 15,
+        "metadata_completeness": 10,
+        "recency": 10,
+    }
+    labels = {
+        "retrieval_confidence": "Retrieval Confidence",
+        "answer_specificity": "Answer Specificity",
+        "source_diversity": "Source Diversity",
+        "metadata_completeness": "Metadata Completeness",
+        "recency": "Recency",
+    }
+
+    rows = []
+    for key, mx in maxima.items():
+        val = int(evidence_breakdown.get(key, 0))
+        pct = int(100 * val / mx) if mx else 0
+        rows.append(
+            f'<div style="margin:4px 0;font-size:12px">'
+            f'<div style="display:flex;justify-content:space-between">'
+            f'<span>{labels[key]}</span><span>{val}/{mx}</span></div>'
+            f'<div style="background:rgba(127,127,127,0.25);border-radius:4px;height:7px">'
+            f'<div style="width:{pct}%;height:7px;border-radius:4px;background:currentColor;opacity:0.7"></div>'
+            f'</div></div>'
+        )
+
+    conf_html = ""
+    if critic_confidence is not None:
+        conf_pct = int(100 * float(critic_confidence))
+        conf_html = (
+            f'<div style="margin-top:8px;font-size:12px">'
+            f'Critic confidence: <strong>{conf_pct}%</strong></div>'
+        )
+
+    sources_html = ""
+    if source_map:
+        items = "".join(
+            # tag + source text are untrusted (derived from retrieved content) —
+            # escape both before interpolating into raw HTML (F4).
+            f'<li style="margin:2px 0"><code>[{html.escape(str(tag))}]</code> '
+            f'{html.escape(text[:140] + ("…" if len(text) > 140 else ""))}</li>'
+            for tag, text in list(source_map.items())[:12]
+        )
+        sources_html = (
+            f'<details style="margin-top:8px;font-size:12px">'
+            f'<summary>Sources ({len(source_map)})</summary>'
+            f'<ul style="margin:4px 0 0 0;padding-left:18px">{items}</ul></details>'
+        )
+
+    return (
+        '<div style="border:1px solid rgba(127,127,127,0.3);border-radius:8px;padding:10px">'
+        '<div style="font-weight:600;font-size:13px;margin-bottom:6px">Evidence Transparency</div>'
+        + "".join(rows) + conf_html + sources_html + "</div>"
+    )
 
 
 def render_header_meta_html(catalog: Dict[str, Any] | None = None) -> str:

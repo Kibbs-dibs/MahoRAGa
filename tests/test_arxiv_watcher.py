@@ -143,7 +143,13 @@ def test_fastapi_watcher_sync_endpoint():
 
     with patch("agents.arxiv_watcher.ArXivWatcher.fetch_and_ingest", return_value=mock_result):
         with TestClient(app) as client:
-            res = client.post("/api/v1/watcher/sync?query=RAG&max_papers=1")
+            # /api/v1/watcher/sync is an auth-gated write route. Supply the key
+            # when one is configured; otherwise (loopback dev) it is open.
+            from core.config import settings
+            headers = {}
+            if settings.aletheia_api_key:
+                headers["Authorization"] = f"Bearer {settings.aletheia_api_key}"
+            res = client.post("/api/v1/watcher/sync?query=RAG&max_papers=1", headers=headers)
             assert res.status_code == 200
             data = res.json()
             assert data["status"] == "success"

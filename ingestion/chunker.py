@@ -98,6 +98,17 @@ def chunk_document(
 
                 # Process oversized paragraph by sentences
                 sentences = _split_into_sentences(para)
+                # A single sentence can still exceed max_size (long enumerations,
+                # tables, missing punctuation). Hard-split those into <=max_size
+                # slices so no emitted unit overflows the budget (Issue 30).
+                normalized_sentences: List[str] = []
+                for s in sentences:
+                    if len(s) > max_size:
+                        for i in range(0, len(s), max_size):
+                            normalized_sentences.append(s[i:i + max_size])
+                    else:
+                        normalized_sentences.append(s)
+                sentences = normalized_sentences
                 sent_buffer: List[str] = []
                 sent_len = 0
 

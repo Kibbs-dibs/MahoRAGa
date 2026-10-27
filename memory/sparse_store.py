@@ -112,12 +112,12 @@ class SparseStore:
         """Serialise the BM25 index, tokenised corpus, and metadata to disk."""
         try:
             Path(self._index_path).parent.mkdir(parents=True, exist_ok=True)
-            payload = {
-                "tokenised_corpus": self._tokenised_corpus,
-                "bm25": self._bm25,
-            }
-            with open(self._index_path, "wb") as fh:
-                pickle.dump(payload, fh)
+            # Persist the tokenised corpus as JSON and REBUILD BM25 on load,
+            # instead of pickling the BM25Okapi object (Issue 15: pickle.load on a
+            # tamperable on-disk file is an arbitrary-code-execution risk).
+            payload = {"tokenised_corpus": self._tokenised_corpus}
+            with open(self._index_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
             logger.info(
                 "BM25 index saved to %s (%d documents)",
                 self._index_path,
@@ -147,10 +147,23 @@ class SparseStore:
             )
 
         try:
-            with open(self._index_path, "rb") as fh:
-                payload = pickle.load(fh)
+            # Preferred format: JSON corpus (safe). Fall back to legacy pickle
+            # for indexes written before the JSON migration, then rebuild.
+            try:
+                with open(self._index_path, "r", encoding="utf-8") as fh:
+                    payload = json.load(fh)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                logger.warning(
+                    "BM25 index at %s is legacy pickle; loading corpus and re-saving as JSON.",
+                    self._index_path,
+                )
+                with open(self._index_path, "rb") as fh:
+                    payload = pickle.load(fh)
+
             self._tokenised_corpus = payload["tokenised_corpus"]
-            self._bm25 = payload["bm25"]
+            # Rebuild the BM25 index from the corpus rather than trusting a
+            # serialised object (also makes the on-disk format safe to share).
+            self._rebuild_index()
             logger.info(
                 "BM25 index loaded from %s (%d documents)",
                 self._index_path,
@@ -352,13 +365,20 @@ class SparseStore:
 
         for result_list in result_lists:
             for rank, doc in enumerate(result_list, start=1):
-                text_key = doc.get("text", "")
-                rrf_scores[text_key] = rrf_scores.get(text_key, 0.0) + 1.0 / (
-                    k + rank
+                # Prefer a stable unique id over raw text so that results lacking a
+                # 'text' field (e.g. graph triples) do not all collapse into the ""
+                # bucket (Issue 14). Fall back through chunk_id -> doi -> text, and
+                # use an object-identity key if none are present.
+                key = (
+                    doc.get("chunk_id")
+                    or doc.get("doi")
+                    or doc.get("text")
+                    or f"_anon_{id(doc)}"
                 )
+                rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
                 # Keep the richest metadata (first encounter wins)
-                if text_key not in doc_map:
-                    doc_map[text_key] = dict(doc)
+                if key not in doc_map:
+                    doc_map[key] = dict(doc)
 
         # Build final list sorted by RRF score
         fused: List[Dict[str, Any]] = []

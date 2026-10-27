@@ -109,18 +109,43 @@ def _compute_relevance_scores(
     target_terms = set(re.findall(r"\b[a-z]{3,}\b", target))
     focal_lower = focal_token.lower()
 
+    # Feature 3.1: compute embedding cosine similarity (query vs each sentence)
+    # to blend genuine semantic relevance into the lexical base score. Falls back
+    # to lexical-only if the encoder/config is unavailable.
+    sem_sims: Optional[List[float]] = None
+    try:
+        from core.config import settings as _settings
+        if getattr(_settings, "semantic_pruning", True) and sentences:
+            from memory.vector_store import VectorStore
+            import numpy as _np
+            enc = VectorStore().encode  # L2-normalised embeddings
+            qvec = enc([f"{focal_token} {query}"])[0]
+            svecs = enc(sentences)
+            sims = svecs @ qvec  # cosine (vectors are L2-normalised)
+            sem_sims = [float(max(0.0, min(1.0, s))) for s in sims]
+    except Exception as exc:
+        logger.debug(f"Semantic pruning unavailable, lexical-only: {exc}")
+        sem_sims = None
+
     scores: List[float] = []
 
-    for sent in sentences:
+    for i, sent in enumerate(sentences):
         sent_lower = sent.lower()
         sent_terms = set(re.findall(r"\b[a-z]{3,}\b", sent_lower))
 
         if not sent_terms or not target_terms:
-            base_score = 0.1
+            lexical = 0.1
         else:
             intersection = target_terms.intersection(sent_terms)
             union = target_terms.union(sent_terms)
-            base_score = len(intersection) / len(union) if union else 0.1
+            lexical = len(intersection) / len(union) if union else 0.1
+
+        # Blend lexical + semantic (when available): semantics dominates so that
+        # meaning beats lexical coincidence (stop-word overlap, etc.).
+        if sem_sims is not None:
+            base_score = 0.25 * lexical + 0.75 * sem_sims[i]
+        else:
+            base_score = lexical
 
         # Direct focal token match bonus (next-token attention focus)
         if focal_lower in sent_lower:
@@ -158,19 +183,38 @@ def _prune_sentences(
     # Pair each sentence with its original index and score
     scored_items = list(zip(range(len(sentences)), sentences, scores))
 
+    def _is_cited(sent: str) -> bool:
+        # A real bracketed citation like "[Smith et al., 2024]" (not a section header).
+        return bool(re.search(r"\[[^\]]+\]", sent)) and not sent.strip().startswith("===")
+
     # Always prioritize sentences with citations or headers
     def sort_key(item):
         idx, sent, score = item
-        bonus = 0.5 if re.search(r"\[[^\]]+\]", sent) or sent.startswith("===") else 0.0
+        bonus = 0.5 if (_is_cited(sent) or sent.startswith("===")) else 0.0
         return score + bonus
 
     sorted_by_score = sorted(scored_items, key=sort_key, reverse=True)
 
-    # Greedily accumulate sentences within budget
+    # ── GUARANTEED CITATION PRESERVATION (Issue 3.3) ───────────────────
+    # Cited sentences carry the provenance the generator/critic depend on, so
+    # retain them FIRST regardless of budget (up to a safety cap so a pathological
+    # all-cited context cannot defeat compression entirely), then fill the
+    # remaining budget with the best-scoring non-cited sentences.
     selected_indices = set()
     accumulated_chars = 0
 
-    for idx, sent, score in sorted_by_score:
+    cited_items = [it for it in sorted_by_score if _is_cited(it[1])]
+    noncited_items = [it for it in sorted_by_score if not _is_cited(it[1])]
+
+    # Cap guaranteed citations at 2x the budget to keep compression meaningful.
+    citation_char_cap = max(target_budget_chars * 2, target_budget_chars + 300)
+    for idx, sent, score in cited_items:
+        if accumulated_chars + len(sent) <= citation_char_cap or not selected_indices:
+            selected_indices.add(idx)
+            accumulated_chars += len(sent)
+
+    # Fill remaining budget with highest-scoring non-cited sentences.
+    for idx, sent, score in noncited_items:
         if accumulated_chars + len(sent) <= target_budget_chars or not selected_indices:
             selected_indices.add(idx)
             accumulated_chars += len(sent)
@@ -215,17 +259,27 @@ def pruner_node(state: AletheiaState) -> AletheiaState:
         # ── 1. Assemble raw retrieved context ──────────────────────────
         context_parts: List[str] = []
 
-        if state.memory and state.memory.serialized_graph_triples:
-            context_parts.append("=== Knowledge Graph Triples ===")
-            context_parts.extend(state.memory.serialized_graph_triples)
+        # ── 1. Assemble raw retrieved context ──────────────────────────
+        context_parts: List[str] = []
 
-        if state.memory and state.memory.vector_chunks:
-            context_parts.append("=== Dense Vector Chunks ===")
-            context_parts.extend(state.memory.vector_chunks)
+        # Prefer the fused ranked output (Feature 1.1) as the primary internal
+        # context; fall back to per-layer assembly when fusion did not run
+        # (e.g. the current_world short-circuit path).
+        if state.memory and state.memory.fused_chunks:
+            context_parts.append("=== Retrieved Evidence (RRF-fused) ===")
+            context_parts.extend(state.memory.fused_chunks)
+        else:
+            if state.memory and state.memory.serialized_graph_triples:
+                context_parts.append("=== Knowledge Graph Triples ===")
+                context_parts.extend(state.memory.serialized_graph_triples)
 
-        if state.memory and state.memory.lexical_chunks:
-            context_parts.append("=== Lexical Chunks ===")
-            context_parts.extend(state.memory.lexical_chunks)
+            if state.memory and state.memory.vector_chunks:
+                context_parts.append("=== Dense Vector Chunks ===")
+                context_parts.extend(state.memory.vector_chunks)
+
+            if state.memory and state.memory.lexical_chunks:
+                context_parts.append("=== Lexical Chunks ===")
+                context_parts.extend(state.memory.lexical_chunks)
 
         if state.memory and state.memory.external_api_abstracts:
             context_parts.append("=== External API Abstracts ===")
@@ -248,16 +302,59 @@ def pruner_node(state: AletheiaState) -> AletheiaState:
 
         # ── 4. Calculate Attention / Relevance Scores ───────────────────
         if assembled_raw:
-            sentences = _split_into_sentences(assembled_raw)
+            # Score at the micro-window granularity (Issue 6): the micro-windows
+            # built above now drive scoring/pruning instead of a separate, unused
+            # segmentation. Each window is split into sentences so pruning stays
+            # sentence-level while honoring the window structure.
+            sentences = []
+            for window in micro_windows:
+                sentences.extend(_split_into_sentences(window))
+            if not sentences:  # fallback if windowing produced nothing
+                sentences = _split_into_sentences(assembled_raw)
+            # Exclude provenance/section header markers ("=== ... ===") from scoring
+            # and budget — they carry no evidence and would otherwise win the header
+            # bonus and crowd out real content on small contexts (Issue 7).
+            sentences = [
+                s for s in sentences
+                if not (s.strip().startswith("===") and s.strip().endswith("==="))
+            ]
             scores = _compute_relevance_scores(sentences, focal_token, query_text)
 
             # ── 5. Prune Sentences to Target Budget ─────────────────────
+            ceiling = (
+                state.max_compression_ratio_override
+                if state.max_compression_ratio_override is not None
+                else settings.max_compression_ratio
+            )
+            # Adaptive compression (Feature 3.2): complex queries keep MORE context
+            # (lower effective ratio), simple ones compress harder — bounded by the
+            # configured ceiling. Complexity ≈ query length + multi-part signals.
+            q = (query_text or "").lower()
+            complexity = 0
+            complexity += len(q.split()) >= 12          # long query
+            complexity += q.count("?") >= 2             # multi-question
+            complexity += any(w in q for w in (" and ", " compare", " versus", " vs ", " differ", " relationship"))
+            complexity += len(q.split()) >= 25          # very long
+            # 0 signals -> full ceiling; each signal reduces the effective ratio.
+            max_ratio = max(1.5, ceiling * (1.0 - 0.18 * complexity))
+            state.compression.compression_ratio = 0.0  # set by _prune_sentences below
             pruned_text, ratio = _prune_sentences(
                 sentences,
                 scores,
-                max_compression_ratio=settings.max_compression_ratio,
+                max_compression_ratio=max_ratio,
             )
-            state.compression.final_pruned_prompt = pruned_text
+            # Tag each retained line with a stable [S#] source id and build a
+            # source_map for structured click-through citations (Feature 4.2).
+            tagged_lines = []
+            source_map = {}
+            for i, line in enumerate((pruned_text or "").split("\n"), start=1):
+                if not line.strip():
+                    continue
+                tag = f"S{i}"
+                source_map[tag] = line.strip()
+                tagged_lines.append(f"[{tag}] {line}")
+            state.compression.final_pruned_prompt = "\n".join(tagged_lines) if tagged_lines else pruned_text
+            state.compression.source_map = source_map
             state.compression.compression_ratio = ratio
         else:
             # Fallback when memory is empty

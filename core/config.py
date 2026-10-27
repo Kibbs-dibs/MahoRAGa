@@ -26,8 +26,12 @@ class Settings(BaseSettings):
         description="Neo4j authentication username.",
     )
     neo4j_password: str = Field(
-        default="password",
-        description="Neo4j authentication password.",
+        default="",
+        description=(
+            "Neo4j authentication password. No usable default — set NEO4J_PASSWORD "
+            "in the environment/.env. An empty value means Neo4j auth is unconfigured "
+            "(the client will fail loudly on connect rather than using a weak default)."
+        ),
     )
 
     # ── FAISS ───────────────────────────────────────────────────────────
@@ -62,6 +66,18 @@ class Settings(BaseSettings):
     cross_encoder_model_name: str = Field(
         default="cross-encoder/ms-marco-MiniLM-L-6-v2",
         description="HuggingFace cross-encoder model for re-ranking.",
+    )
+    cross_encoder_rerank: bool = Field(
+        default=True,
+        description=(
+            "Re-rank the RRF-fused retrieval candidates with the cross-encoder for "
+            "final precision (Feature 1.2). Adds latency; degrades gracefully to RRF-only "
+            "if the model cannot load. Set false for the fastest/local path."
+        ),
+    )
+    rerank_candidate_pool: int = Field(
+        default=20,
+        description="How many top fused candidates to cross-encoder re-rank before taking top_k.",
     )
 
     # ── LLM / Ollama ────────────────────────────────────────────────────
@@ -123,6 +139,55 @@ class Settings(BaseSettings):
         default=0.30,
         description="Minimum term-overlap ratio for drift guard during agentic retry.",
     )
+    persist_external_abstracts: bool = Field(
+        default=False,
+        description=(
+            "When true, vetted external-search abstracts are written into FAISS + BM25 "
+            "so the corpus self-enriches from use (Feature 5.1). Off by default because "
+            "it mutates the persistent corpus; enable for a learning deployment."
+        ),
+    )
+    llm_fact_extraction: bool = Field(
+        default=False,
+        description=(
+            "When true, knowledge-graph fact extraction uses the LLM (structured triples) "
+            "instead of the regex heuristic (Feature 6.1), falling back to regex on failure "
+            "or offline. Off by default since it adds LLM cost at ingest time."
+        ),
+    )
+    semantic_pruning: bool = Field(
+        default=True,
+        description=(
+            "When true, the AttentionRAG pruner blends embedding cosine similarity "
+            "(query vs sentence) into sentence relevance for genuinely semantic "
+            "compression (Feature 3.1), falling back to lexical scoring if the encoder "
+            "is unavailable. Set false for the fastest lexical-only path."
+        ),
+    )
+
+    # ── Resilience / Failure Handling ───────────────────────────────────
+    request_timeout_seconds: float = Field(
+        default=90.0,
+        description=(
+            "Hard wall-clock ceiling for a single /query pipeline run. On expiry the "
+            "endpoint returns HTTP 503 (service unavailable / overloaded) with a clear "
+            "message instead of hanging or emitting an opaque 500. Guards against a "
+            "wedged backend or runaway retrieval holding the request open indefinitely."
+        ),
+    )
+    max_concurrent_queries: int = Field(
+        default=4,
+        description=(
+            "Maximum pipeline runs executing at once. A memory-heavy pipeline (encoders, "
+            "cross-encoder, FAISS) can OOM the host under a burst, so excess requests "
+            "wait briefly for a slot and are rejected with HTTP 503 if none frees within "
+            "query_admission_wait_seconds — back-pressure instead of a crash."
+        ),
+    )
+    query_admission_wait_seconds: float = Field(
+        default=10.0,
+        description="How long a query waits for a concurrency slot before returning 503.",
+    )
 
     # ── PPR (Personalized PageRank) ─────────────────────────────────────
     ppr_alpha: float = Field(
@@ -136,12 +201,83 @@ class Settings(BaseSettings):
 
     # ── General ─────────────────────────────────────────────────────────
     chunk_size: int = Field(
-        default=3500,
-        description="Target character length for structure-aware chunking.",
+        default=1000,
+        description=(
+            "Target character length for structure-aware chunking. Kept close to "
+            "the dense embedder's input window (all-MiniLM-L6-v2 truncates at ~256 "
+            "word-pieces, roughly 1000 chars) so FAISS embeds the whole chunk "
+            "rather than only its opening. Raise only if you also switch to a "
+            "longer-context embedding model."
+        ),
     )
     top_k_retrieval: int = Field(
         default=10,
         description="Default number of results for vector / lexical retrieval.",
+    )
+
+    # ── API / CORS ──────────────────────────────────────────────────────
+    cors_allow_origins: str = Field(
+        default="*",
+        description=(
+            "Comma-separated allowed CORS origins for the FastAPI backend. "
+            "'*' allows any origin but DISABLES credentialed requests (safe default). "
+            "Set explicit origins (e.g. 'http://localhost:7860') to enable credentials."
+        ),
+    )
+
+    # ── API authentication (scoped) ─────────────────────────────────────
+    aletheia_api_key: Optional[str] = Field(
+        default=None,
+        description=(
+            "Shared secret (bearer token) required for write/destructive REST "
+            "routes (ingest, corpus wipe/retry, watcher sync, evaluate, session "
+            "create/delete). Read endpoints stay open. When UNSET, those write "
+            "routes FAIL CLOSED (HTTP 503) on a network-exposed bind so a "
+            "misconfigured deployment cannot be wiped by anonymous callers; on a "
+            "loopback bind they are allowed for frictionless local dev."
+        ),
+    )
+    expose_api_docs: bool = Field(
+        default=True,
+        description=(
+            "Expose interactive OpenAPI docs at /docs and /redoc. Set false for a "
+            "network-exposed deployment to avoid advertising the full API surface "
+            "(defense-in-depth; does not replace authentication)."
+        ),
+    )
+    aletheia_ui_auth_enabled: bool = Field(
+        default=False,
+        description=(
+            "Require a username/password login for the Gradio UI mounted at '/'. "
+            "The UI's ingest/wipe/arxiv buttons call the service layer directly "
+            "(not the gated REST routes), so enable this when exposing the UI."
+        ),
+    )
+    aletheia_ui_username: str = Field(
+        default="admin",
+        description="Username for the Gradio UI login (when ui auth is enabled).",
+    )
+    aletheia_ui_password: Optional[str] = Field(
+        default=None,
+        description="Password for the Gradio UI login (when ui auth is enabled).",
+    )
+    web_ui_host: str = Field(
+        default="127.0.0.1",
+        description=(
+            "Interface the unified server binds to. Defaults to loopback "
+            "(127.0.0.1) so a fresh run is not network-exposed by accident. Set "
+            "'0.0.0.0' explicitly to expose on all interfaces."
+        ),
+    )
+
+    # ── Upload limits ───────────────────────────────────────────────────
+    max_upload_bytes: int = Field(
+        default=25 * 1024 * 1024,
+        description=(
+            "Maximum accepted size (bytes) for a single uploaded PDF. Guards "
+            "against memory exhaustion / disk-fill from a network client. "
+            "Default 25 MB."
+        ),
     )
 
     model_config = {

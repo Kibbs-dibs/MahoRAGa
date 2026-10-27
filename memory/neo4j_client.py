@@ -275,17 +275,25 @@ class Neo4jClient:
         self,
         doc_id: str,
         title: str = "",
-        authors: str = "",
+        authors: Any = "",
         year: int | None = None,
+        url: str = "",
+        publication_year: int | None = None,
     ) -> None:
-        """Create or update a DOCUMENT node."""
+        """Create or update a DOCUMENT node.
+
+        Accepts both ``year`` and ``publication_year`` (the latter used by the
+        ingestion service); ``publication_year`` wins when both are given.
+        ``authors`` may be a string or a list of strings (Neo4j stores either).
+        """
+        resolved_year = publication_year if publication_year is not None else year
         cypher = """
         MERGE (d:DOCUMENT {doc_id: $doc_id})
-        ON CREATE SET d.title = $title, d.authors = $authors, d.year = $year
-        ON MATCH SET  d.title = $title, d.authors = $authors, d.year = $year
+        ON CREATE SET d.title = $title, d.authors = $authors, d.year = $year, d.url = $url
+        ON MATCH SET  d.title = $title, d.authors = $authors, d.year = $year, d.url = $url
         """
         self._write(cypher, doc_id=doc_id, title=title,
-                    authors=authors, year=year)
+                    authors=authors, year=resolved_year, url=url)
 
     def link_fact_to_passage(
         self,
@@ -374,11 +382,12 @@ class Neo4jClient:
         alpha: float | None = None,
         top_k: int | None = None,
     ) -> List[Dict[str, Any]]:
-        """Execute a pure-Cypher iterative PPR starting from *seed_entity*.
+        """Execute a pure-Cypher **single-pass PPR approximation** from *seed_entity*.
 
-        This avoids a hard dependency on Neo4j GDS while remaining
-        faithful to the Structure-Aware Node Initialization described in
-        the PRD (§ Technical Research).
+        NOTE: this is a one-shot teleport+degree scoring over a ≤3-hop neighbourhood,
+        NOT a true iterative PageRank power-iteration (Issue 38). It avoids a hard
+        dependency on Neo4j GDS and approximates Structure-Aware Node Initialization
+        from the PRD; for exact PPR use the GDS `gds.pageRank` projection.
 
         Parameters
         ----------

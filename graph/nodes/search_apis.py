@@ -27,6 +27,57 @@ import random
 logger = logging.getLogger(__name__)
 
 
+# ── External-API circuit breaker ─────────────────────────────────────────
+# Mirrors the LLM client's _disable_backend pattern: after N consecutive
+# failures a source is "opened" (skipped) for a cooldown, so a down or
+# rate-limiting API (429/5xx storms) is not hammered on every query. State is
+# process-local and self-healing — the next call after the cooldown probes once.
+_BREAKER_FAILS: Dict[str, int] = {}
+_BREAKER_OPEN_UNTIL: Dict[str, float] = {}
+_BREAKER_FAIL_THRESHOLD = 3
+_BREAKER_COOLDOWN_SECONDS = 60.0
+
+
+def _breaker_is_open(source: str) -> bool:
+    """True if this source is in cooldown and should be skipped."""
+    return time.time() < _BREAKER_OPEN_UNTIL.get(source, 0.0)
+
+
+def _breaker_record_success(source: str) -> None:
+    _BREAKER_FAILS[source] = 0
+    _BREAKER_OPEN_UNTIL.pop(source, None)
+
+
+def _breaker_record_failure(source: str) -> None:
+    n = _BREAKER_FAILS.get(source, 0) + 1
+    _BREAKER_FAILS[source] = n
+    if n >= _BREAKER_FAIL_THRESHOLD:
+        _BREAKER_OPEN_UNTIL[source] = time.time() + _BREAKER_COOLDOWN_SECONDS
+        logger.warning(
+            "Circuit breaker OPEN for '%s' after %d consecutive failures; "
+            "skipping for %.0fs.", source, n, _BREAKER_COOLDOWN_SECONDS,
+        )
+
+
+async def _guarded_search(source: str, coro_factory):
+    """Run an external search under the breaker: skip if open, trip on failure.
+
+    ``coro_factory`` is a zero-arg callable returning the search coroutine, so a
+    skipped source never even constructs the request.
+    """
+    if _breaker_is_open(source):
+        logger.info("Skipping '%s' (circuit breaker open).", source)
+        return []
+    try:
+        results = await coro_factory()
+        _breaker_record_success(source)
+        return results
+    except Exception as exc:
+        _breaker_record_failure(source)
+        logger.warning("External source '%s' failed: %s", source, exc)
+        return []
+
+
 def _calculate_term_overlap(query_terms: set, text_terms: set) -> float:
     """
     Calculate Jaccard similarity (term overlap) between query and text.
@@ -217,6 +268,45 @@ async def _search_semantic_scholar(query: str, client: httpx.AsyncClient) -> Lis
         logger.warning(f"Semantic Scholar search failed: {exc}")
         return []
 
+async def _search_arxiv(query: str, client: httpx.AsyncClient) -> List[Dict[str, Any]]:
+    """Search the arXiv Atom API for preprints (Feature 5.4: broader coverage).
+
+    Reuses the watcher's Atom parser so abstract/title/author/year extraction
+    stays consistent with ingestion.
+    """
+    try:
+        import urllib.parse
+        from agents.arxiv_watcher import parse_arxiv_atom_feed
+
+        params = {
+            "search_query": f"all:{query.strip()}",
+            "start": 0,
+            "max_results": min(settings.top_k_retrieval * 2, 20),
+            "sortBy": "relevance",
+            "sortOrder": "descending",
+        }
+        url = f"http://export.arxiv.org/api/query?{urllib.parse.urlencode(params)}"
+        response = await client.get(url)
+        response.raise_for_status()
+
+        results: List[Dict[str, Any]] = []
+        for paper in parse_arxiv_atom_feed(response.text):
+            if paper.abstract and len(paper.abstract) > 50:
+                results.append({
+                    "title": paper.title,
+                    "abstract": paper.abstract,
+                    "source": "arxiv",
+                    "doi": "",
+                    "year": int(paper.published[:4]) if paper.published[:4].isdigit() else None,
+                    "authors": paper.authors,
+                })
+        return results
+    except Exception as exc:
+        logger.warning(f"arXiv search failed: {exc}")
+        return []
+
+
+
 
 async def _perform_external_search_with_retry(
     query: str,
@@ -233,24 +323,49 @@ async def _perform_external_search_with_retry(
     async with httpx.AsyncClient(timeout=30.0) as client:
         for attempt in range(1 + max_retries):
             try:
-                # Search all three APIs concurrently
-                crossref_task = _search_crossref(query, client)
-                openalex_task = _search_openalex(query, client)
-                semantic_scholar_task = _search_semantic_scholar(query, client)
-
-                crossref_results, openalex_results, semantic_scholar_results = await asyncio.gather(
-                    crossref_task, openalex_task, semantic_scholar_task,
-                    return_exceptions=True
+                # Search all academic APIs concurrently, each under its circuit
+                # breaker so a repeatedly-failing source is skipped for a cooldown.
+                sources = [
+                    ("crossref", lambda: _search_crossref(query, client)),
+                    ("openalex", lambda: _search_openalex(query, client)),
+                    ("semantic_scholar", lambda: _search_semantic_scholar(query, client)),
+                    ("arxiv", lambda: _search_arxiv(query, client)),
+                ]
+                gathered = await asyncio.gather(
+                    *[_guarded_search(name, factory) for name, factory in sources],
+                    return_exceptions=True,
                 )
 
                 # Handle exceptions from individual APIs
                 all_results = []
-                for results in [crossref_results, openalex_results, semantic_scholar_results]:
+                rate_limited = False
+                for (name, _factory), results in zip(sources, gathered):
                     if isinstance(results, Exception):
+                        # Detect rate-limit errors captured by return_exceptions=True
+                        if isinstance(results, httpx.HTTPStatusError) and results.response.status_code == 429:
+                            rate_limited = True
+                            last_exc = results
+                        _breaker_record_failure(name)
                         logger.warning(f"One API search failed: {results}")
                         continue
                     all_results.extend(results)
 
+                # If we got usable results, return them (partial success is fine).
+                if all_results:
+                    return all_results
+
+                # No results AND at least one API was rate-limited → back off and retry.
+                if rate_limited and attempt < max_retries:
+                    delay = min(base_delay * (2 ** attempt), max_delay)
+                    delay += random.uniform(0, jitter)
+                    logger.warning(
+                        f"HTTP 429 from external API(s), attempt {attempt + 1}/{max_retries + 1}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                # No results and no retryable rate-limit (or retries exhausted) → done.
                 return all_results
 
             except httpx.HTTPStatusError as e:
@@ -309,9 +424,36 @@ def _reformulate_query(
         # First iteration - use the query as-is or apply minimal enhancement
         return base_query
 
-    # For subsequent iterations, apply simple expansion techniques
-    # In production, this would use LLM-based query expansion/reformulation
+    # Feature 5.2: prefer an LLM-generated academic reformulation for subsequent
+    # iterations (the mechanical plural/-ing expansion below rarely helps academic
+    # recall). Drift-guard the LLM output and fall back to the heuristic on any
+    # failure or drift, so offline / no-LLM operation still works.
+    try:
+        from core.llm import llm_client
+        prompt = (
+            f"Rewrite this academic search query to improve recall on scholarly APIs "
+            f"(Crossref/OpenAlex/Semantic Scholar). Expand acronyms, add close synonyms, "
+            f"keep it one line, no commentary.\n\nQuery: {base_query}"
+        )
+        resp = llm_client.call(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You reformulate academic search queries. Output only the rewritten query.",
+            temperature=0.2,
+            max_tokens=60,
+        )
+        candidate = (resp.content or "").strip().splitlines()[0].strip() if resp and resp.content else ""
+        if candidate:
+            overlap = _calculate_term_overlap(
+                _extract_query_terms(original_query), _extract_query_terms(candidate)
+            )
+            if overlap >= settings.drift_guard_min_overlap:
+                logger.debug(f"LLM reformulation accepted (overlap={overlap:.2f}): {candidate[:80]}")
+                return candidate
+            logger.debug(f"LLM reformulation rejected for drift (overlap={overlap:.2f}); using heuristic")
+    except Exception as exc:
+        logger.debug(f"LLM reformulation unavailable, using heuristic: {exc}")
 
+    # Heuristic fallback (also offline path) ----------------------------------
     # Extract key terms from the query
     query_terms = _extract_query_terms(base_query)
 
@@ -508,8 +650,63 @@ async def _search_apis_node_async(state: AletheiaState) -> AletheiaState:
                 seen_abstracts.add(abstract_hash)
                 final_abstracts.append(abstract)
 
+        # Drop external abstracts already covered by the internal corpus
+        # (Feature 5.3): if an abstract is highly similar to an existing internal
+        # chunk, it adds no new evidence — prune it so external results complement
+        # rather than duplicate internal retrieval. Graceful no-op offline.
+        try:
+            internal = (list(state.memory.serialized_graph_triples)
+                        + list(state.memory.vector_chunks)
+                        + list(state.memory.lexical_chunks))
+            if final_abstracts and internal:
+                from memory.vector_store import VectorStore
+                enc = VectorStore().encode
+                import numpy as _np
+                iv = enc(internal)                      # L2-normalised
+                av = enc(final_abstracts)
+                kept = []
+                for i, a in enumerate(final_abstracts):
+                    max_sim = float(_np.max(iv @ av[i])) if len(internal) else 0.0
+                    if max_sim < 0.92:                  # not a near-duplicate of internal
+                        kept.append(a)
+                if kept:
+                    logger.info("5.3 dedup: kept %d/%d external abstracts (dropped near-duplicates of internal corpus)",
+                                len(kept), len(final_abstracts))
+                    final_abstracts = kept
+        except Exception as exc:
+            logger.debug(f"External-vs-internal dedup skipped: {exc}")
+
         # Update state with vetted external API abstracts
         state.memory.external_api_abstracts = final_abstracts
+
+        # Optionally persist vetted abstracts so the corpus self-enriches from use
+        # (Feature 5.1). Gated off by default since it mutates the persistent stores.
+        if final_abstracts and settings.persist_external_abstracts:
+            try:
+                from memory.vector_store import VectorStore
+                from memory.sparse_store import SparseStore
+                metas = [{"text": a, "source": "external_search", "document_id": "external"} for a in final_abstracts]
+                v = VectorStore(); v.load_if_exists(); v.add_chunks(list(final_abstracts), list(metas)); v.save()
+                s = SparseStore(); s.load_if_exists(); s.add_documents(list(final_abstracts), list(metas)); s.save()
+                logger.info("Persisted %d external abstracts into FAISS+BM25 (corpus self-enrichment)", len(final_abstracts))
+            except Exception as exc:
+                logger.warning(f"External-abstract persistence skipped: {exc}")
+
+        # Re-score evidence now that external abstracts were added (Issue 11): the
+        # rubric was computed on internal evidence only, so re-run the evaluator so
+        # is_evidence_weak / rubric_score reflect the external results before pruning.
+        # Done inline (not via a graph edge) to keep the StateGraph acyclic.
+        if final_abstracts and state.evaluation is not None:
+            try:
+                from graph.nodes.evaluator import evaluator_node
+                evaluator_node(state)
+                logger.info(
+                    "Re-evaluated after external search: rubric=%d, weak=%s",
+                    state.evaluation.rubric_score,
+                    state.evaluation.is_evidence_weak,
+                )
+            except Exception as exc:
+                logger.warning(f"Post-search re-evaluation skipped: {exc}")
 
         logger.info(
             f"External search complete: added {len(final_abstracts)} vetted abstracts to memory state"

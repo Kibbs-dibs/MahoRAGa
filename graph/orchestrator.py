@@ -47,14 +47,24 @@ def create_aletheia_graph() -> StateGraph:
     # Define the entry point
     workflow.set_entry_point("router")
 
-    # Define the flow edges
-    workflow.add_edge("router", "retriever")
+    # Route-aware edge (Issue 10): out-of-domain / greeting queries ("current_world")
+    # skip the three-layer retrieval, evidence scoring and external search, going
+    # straight to the pruner (which assembles a minimal prompt) + generator.
+    workflow.add_conditional_edges(
+        "router",
+        lambda state: "pruner" if (state.query and state.query.route == "current_world") else "retriever",
+        {
+            "pruner": "pruner",
+            "retriever": "retriever",
+        },
+    )
     workflow.add_edge("retriever", "evaluator")
 
-    # Conditional edge from evaluator: if evidence is weak, go to search APIs
+    # Conditional edge from evaluator: go to search APIs only if evidence is weak
+    # AND the request allows external search (Issue 25).
     workflow.add_conditional_edges(
         "evaluator",
-        lambda state: "search_apis" if state.evaluation.is_evidence_weak else "pruner",
+        lambda state: "search_apis" if (state.evaluation.is_evidence_weak and state.enable_external_search) else "pruner",
         {
             "search_apis": "search_apis",
             "pruner": "pruner"

@@ -24,8 +24,19 @@ from backend.database import db_manager
 
 @pytest.fixture(scope="module")
 def client():
-    """Create FastAPI TestClient."""
-    with TestClient(app) as test_client:
+    """Create FastAPI TestClient.
+
+    Write/destructive routes are auth-gated (backend/auth.py). When an
+    ALETHEIA_API_KEY is configured in the environment (e.g. when the security
+    suite runs in the same process), attach it by default so these functional
+    tests keep exercising the handlers rather than the auth gate.
+    """
+    from core.config import settings
+
+    headers = {}
+    if settings.aletheia_api_key:
+        headers["Authorization"] = f"Bearer {settings.aletheia_api_key}"
+    with TestClient(app, headers=headers) as test_client:
         yield test_client
 
 
@@ -159,6 +170,6 @@ def test_ingest_endpoint(client: TestClient, tmp_path: Path):
     res = client.post("/api/v1/ingest", files=files)
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] in ("success", "skipped")
+    assert data["status"] in ("success", "partial_success", "skipped")
     assert "total_documents" in data
     assert "total_chunks" in data

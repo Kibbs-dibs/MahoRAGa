@@ -122,6 +122,49 @@ def parse_triples_to_graph(triples: List[str]) -> Tuple[List[Dict[str, Any]], Li
     return list(nodes_map.values()), edges
 
 
+def filter_graph_to_neighborhood(
+    nodes: List[Dict[str, Any]],
+    edges: List[Dict[str, Any]],
+    focus_entity: str,
+    hops: int = 1,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Scope a graph to the N-hop neighborhood of *focus_entity* (Feature 7.3).
+
+    Enables an interactive 'zoom to this entity' filter in the graph view. Node
+    identity is matched case-insensitively against node 'id' or 'label'. An unknown
+    focus (or empty) returns the full graph unchanged.
+    """
+    if not focus_entity or not nodes:
+        return nodes, edges
+
+    focus = focus_entity.strip().lower()
+
+    def node_key(n: Dict[str, Any]) -> str:
+        return str(n.get("id", n.get("label", ""))).lower()
+
+    matched = {node_key(n) for n in nodes if focus in node_key(n)}
+    if not matched:
+        return nodes, edges  # unknown focus -> no filtering
+
+    # Expand outward `hops` times along edges.
+    keep = set(matched)
+    for _ in range(max(0, hops)):
+        frontier = set()
+        for e in edges:
+            a = str(e.get("from", "")).lower()
+            b = str(e.get("to", "")).lower()
+            if a in keep:
+                frontier.add(b)
+            if b in keep:
+                frontier.add(a)
+        keep |= frontier
+
+    f_nodes = [n for n in nodes if node_key(n) in keep]
+    f_edges = [e for e in edges
+               if str(e.get("from", "")).lower() in keep and str(e.get("to", "")).lower() in keep]
+    return f_nodes, f_edges
+
+
 def generate_interactive_graph_html(
     nodes: List[Dict[str, Any]],
     edges: List[Dict[str, Any]],

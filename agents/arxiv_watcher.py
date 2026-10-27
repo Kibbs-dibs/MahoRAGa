@@ -53,7 +53,9 @@ def parse_arxiv_atom_feed(xml_text: str) -> List[ArXivPaper]:
     for entry in root.findall(f"{ATOM_NS}entry"):
         id_elem = entry.find(f"{ATOM_NS}id")
         raw_id = id_elem.text.strip() if id_elem is not None and id_elem.text else ""
-        arxiv_id = raw_id.split("/abs/")[-1].split("v")[0] if "/abs/" in raw_id else raw_id
+        arxiv_id = raw_id.split("/abs/")[-1] if "/abs/" in raw_id else raw_id
+        # Strip only a trailing version suffix like "v2" (not any 'v' in the id).
+        arxiv_id = re.sub(r"v\d+$", "", arxiv_id)
 
         title_elem = entry.find(f"{ATOM_NS}title")
         raw_title = title_elem.text if title_elem is not None and title_elem.text else "Untitled"
@@ -83,6 +85,13 @@ def parse_arxiv_atom_feed(xml_text: str) -> List[ArXivPaper]:
             pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
         elif pdf_url and not pdf_url.endswith(".pdf"):
             pdf_url = f"{pdf_url}.pdf"
+
+        # arXiv feed hrefs are sometimes http://; upgrade to https so the
+        # download SSRF allow-list (https-only) accepts legitimate arXiv PDFs.
+        if pdf_url.startswith("http://") and (
+            "//arxiv.org" in pdf_url or "//export.arxiv.org" in pdf_url
+        ):
+            pdf_url = "https://" + pdf_url[len("http://"):]
 
         # Categories
         categories = []
@@ -119,6 +128,24 @@ class ArXivWatcher:
         self.download_dir = Path(download_dir)
         self.download_dir.mkdir(parents=True, exist_ok=True)
         self.api_base_url = "http://export.arxiv.org/api/query"
+
+    # Hosts the watcher is permitted to download PDFs from. The pdf_url comes
+    # from fetched Atom XML (attacker-influenceable), so restrict it to arXiv
+    # rather than letting it point at internal/metadata endpoints (SSRF — F7).
+    _ALLOWED_PDF_HOSTS = frozenset({"arxiv.org", "export.arxiv.org"})
+    _MAX_PDF_BYTES = 50 * 1024 * 1024  # 50 MB download cap
+
+    @classmethod
+    def _is_allowed_pdf_url(cls, url: str) -> bool:
+        """Return True only for https URLs whose host is an allowed arXiv host."""
+        try:
+            parsed = urllib.parse.urlparse((url or "").strip())
+        except Exception:
+            return False
+        if parsed.scheme != "https":
+            return False
+        host = (parsed.hostname or "").lower()
+        return host in cls._ALLOWED_PDF_HOSTS
 
     def search_arxiv(
         self,
@@ -182,17 +209,27 @@ class ArXivWatcher:
             }
 
         catalog = ingestion_service.get_catalog()
-        known_titles = {d.get("title", "").lower() for d in catalog.get("documents", [])}
-        known_hashes = {d.get("md5_hash") for d in catalog.get("documents", [])}
+        # Dedup on the doc_id that ingestion will assign. The watcher saves each PDF
+        # as "{sanitized_arxiv_id}.pdf", and the ingestion service derives doc_id from
+        # the filename stem — so compare on the same sanitized arxiv_id instead of a
+        # fragile title-substring test, keeping watcher and ingestion in agreement
+        # (Issue 27). Exact (normalised) titles are kept as a secondary guard.
+        def _safe_id(arxiv_id: str) -> str:
+            return re.sub(r"[^\w\-.]", "_", arxiv_id)
+
+        known_doc_ids = {d.get("doc_id") for d in catalog.get("documents", [])}
+        known_titles = {d.get("title", "").strip().lower() for d in catalog.get("documents", [])}
 
         downloaded_paths: List[Path] = []
         selected_papers: List[ArXivPaper] = []
 
-        # Filter out papers already ingested
+        # Filter out papers already ingested (by arXiv-id-derived doc_id, then exact title)
         for p in papers:
-            # Check title similarity
-            if any(p.title.lower() in t or t in p.title.lower() for t in known_titles if len(t) > 5):
-                logger.info("Skipping paper already in catalog: %s", p.title)
+            if _safe_id(p.arxiv_id) in known_doc_ids:
+                logger.info("Skipping paper already in catalog (id match): %s", p.arxiv_id)
+                continue
+            if p.title.strip().lower() in known_titles:
+                logger.info("Skipping paper already in catalog (title match): %s", p.title)
                 continue
 
             selected_papers.append(p)
@@ -216,19 +253,47 @@ class ArXivWatcher:
             safe_name = re.sub(r"[^\w\-.]", "_", paper.arxiv_id) + ".pdf"
             dest_file = self.download_dir / safe_name
 
+            # SSRF guard: only download from allowed arXiv hosts over https (F7).
+            if not self._is_allowed_pdf_url(paper.pdf_url):
+                logger.warning(
+                    "Refusing non-arXiv / non-https PDF URL for %s: %s",
+                    paper.arxiv_id,
+                    paper.pdf_url,
+                )
+                continue
+
             try:
-                with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+                # follow_redirects=False so a crafted redirect cannot bounce the
+                # request to an internal host after the allow-list check.
+                with httpx.Client(timeout=30.0, follow_redirects=False) as client:
                     pdf_resp = client.get(paper.pdf_url)
-                    if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100 and pdf_resp.content.startswith(b"%PDF"):
+                    # Any redirect must also stay on an allowed host. Gate on the
+                    # numeric status code (robust vs. httpx internals) rather than
+                    # the is_redirect property.
+                    if isinstance(pdf_resp.status_code, int) and 300 <= pdf_resp.status_code < 400:
+                        loc = pdf_resp.headers.get("location", "")
+                        if not self._is_allowed_pdf_url(loc):
+                            logger.warning("Refusing off-arxiv redirect for %s: %s", paper.arxiv_id, loc)
+                            continue
+                        pdf_resp = client.get(loc)
+                    content = pdf_resp.content
+                    if len(content) > self._MAX_PDF_BYTES:
+                        logger.warning(
+                            "Refusing oversized PDF for %s (%d bytes > cap)",
+                            paper.arxiv_id,
+                            len(content),
+                        )
+                        continue
+                    if pdf_resp.status_code == 200 and len(content) > 100 and content.startswith(b"%PDF"):
                         with open(dest_file, "wb") as fh:
-                            fh.write(pdf_resp.content)
+                            fh.write(content)
                         downloaded_paths.append(dest_file)
                     else:
                         logger.warning(
                             "Failed to download PDF for %s (Status: %d, Size: %d bytes)",
                             paper.arxiv_id,
                             pdf_resp.status_code,
-                            len(pdf_resp.content),
+                            len(content),
                         )
             except Exception as exc:
                 logger.error("Download failed for %s: %s", paper.arxiv_id, exc)

@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 import re
 import time
+import hashlib
+from collections import OrderedDict
 from typing import Optional
 
 from core.exceptions import AletheiaError
@@ -25,11 +27,39 @@ from core.state import AletheiaState, GenerationState
 
 logger = logging.getLogger(__name__)
 
+# ── Answer cache (Feature 4.4) ──────────────────────────────────────────
+# Bounded LRU cache keyed on (normalized query + pruned-context hash). The
+# pruned context already encodes the corpus state that produced it, so a changed
+# corpus -> different context -> different key, which keeps the cache correct
+# without an explicit corpus version. Cuts repeat LLM cost + latency.
+_ANSWER_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_ANSWER_CACHE_MAX = 256
+
+
+def _answer_cache_key(query: str, pruned_context: str) -> str:
+    norm = " ".join((query or "").lower().split())
+    h = hashlib.sha256((norm + "\x00" + (pruned_context or "")).encode("utf-8")).hexdigest()
+    return h
+
+
+def _answer_cache_get(key: str) -> Optional[dict]:
+    hit = _ANSWER_CACHE.get(key)
+    if hit is not None:
+        _ANSWER_CACHE.move_to_end(key)  # LRU touch
+    return hit
+
+
+def _answer_cache_put(key: str, value: dict) -> None:
+    _ANSWER_CACHE[key] = value
+    _ANSWER_CACHE.move_to_end(key)
+    while len(_ANSWER_CACHE) > _ANSWER_CACHE_MAX:
+        _ANSWER_CACHE.popitem(last=False)
+
 GENERATOR_SYSTEM_PROMPT = """You are the primary technical synthesis agent for Project Aletheia, an AI research assistant.
 Synthesize an authoritative, thorough answer to the user's query based STRICTLY on the provided <PRUNED_CONTEXT>.
 
 CITATION REQUIREMENTS:
-- Every technical fact, metric, architecture mechanism, or methodology MUST end with a bracketed citation matching the source in context (e.g., [Vaswani et al., 2017], [Ref-1, 2024], or [Source ID]).
+- The context lines are prefixed with source tags like [S1], [S2]. Every technical fact, metric, architecture mechanism, or methodology MUST end with the bracketed source tag(s) it came from (e.g., [S3]), so citations link back to the exact source.
 - Do NOT hallucinate claims not present in the context. If details are missing, state what is known from the context.
 """
 
@@ -47,17 +77,20 @@ AUDIT RULES:
 EVALUATION:
 If the draft passes both checks, set "passed" to true.
 If it fails, set "passed" to false, and provide specific "feedback" detailing exactly which claim is uncited or hallucinated so the Generator can fix it on the next iteration.
+Also provide a "confidence" score in [0,1] (how confident you are the answer is fully grounded) and a "spans" array listing the exact offending claim substrings (empty when passed).
 
 OUTPUT FORMAT:
 Respond with a raw JSON object:
 {
   "passed": boolean,
-  "feedback": "string or null"
+  "feedback": "string or null",
+  "confidence": number,
+  "spans": ["offending claim text", ...]
 }
 """
 
 
-def _run_critic_audit(pruned_context: str, draft_answer: str) -> tuple[bool, Optional[str], float]:
+def _run_critic_audit(pruned_context: str, draft_answer: str) -> tuple[bool, Optional[str], float, float, list]:
     """
     Run The Critic audit on the drafted answer.
     Returns (passed, feedback, cost_usd).
@@ -76,18 +109,28 @@ def _run_critic_audit(pruned_context: str, draft_answer: str) -> tuple[bool, Opt
 
     passed = True
     feedback = None
+    confidence = 1.0
+    spans: list = []
 
     if resp.parsed_json:
         passed = bool(resp.parsed_json.get("passed", True))
         feedback = resp.parsed_json.get("feedback")
+        try:
+            confidence = float(resp.parsed_json.get("confidence", 1.0 if passed else 0.3))
+        except (TypeError, ValueError):
+            confidence = 1.0 if passed else 0.3
+        confidence = max(0.0, min(1.0, confidence))
+        raw_spans = resp.parsed_json.get("spans") or []
+        spans = [str(s) for s in raw_spans if str(s).strip()] if isinstance(raw_spans, list) else []
     else:
         # Heuristic fallback if JSON parsing failed
         has_citations = bool(re.search(r"\[[^\]]+\]", draft_answer))
         if not has_citations:
             passed = False
             feedback = "Missing bracketed citations for technical claims."
+            confidence = 0.3
 
-    return passed, feedback, resp.cost_usd
+    return passed, feedback, resp.cost_usd, confidence, spans
 
 
 def generator_node(state: AletheiaState) -> AletheiaState:
@@ -128,9 +171,24 @@ def generator_node(state: AletheiaState) -> AletheiaState:
             state.query.reformulated_query or original_query if state.query else ""
         )
 
+        # ── 0. Answer cache lookup (Feature 4.4) ──────────────────────
+        _hist = getattr(state.query, "conversation_history", None) or [] if state.query else []
+        _key_query = (reformulated_query or original_query) + " || " + " | ".join(_hist)
+        cache_key = _answer_cache_key(_key_query, pruned_context)
+        cached = _answer_cache_get(cache_key)
+        if cached is not None:
+            state.generation.draft_answer = cached["answer"]
+            state.generation.critic_feedback = cached.get("critic_feedback")
+            logger.info("Answer cache HIT — served without LLM calls (%.0f%% full)",
+                        100.0 * len(_ANSWER_CACHE) / _ANSWER_CACHE_MAX)
+            return state
+
         # ── 1. Synthesize Draft Answer ────────────────────────────────
+        history = getattr(state.query, "conversation_history", None) or [] if state.query else []
+        history_block = ("\n<CONVERSATION_HISTORY>\n" + "\n".join(history) + "\n</CONVERSATION_HISTORY>\n") if history else ""
         gen_prompt = (
-            f"<USER_QUERY>\n{reformulated_query or original_query}\n</USER_QUERY>\n\n"
+            f"<USER_QUERY>\n{reformulated_query or original_query}\n</USER_QUERY>\n"
+            f"{history_block}\n"
             f"<PRUNED_CONTEXT>\n{pruned_context}\n</PRUNED_CONTEXT>"
         )
 
@@ -146,10 +204,14 @@ def generator_node(state: AletheiaState) -> AletheiaState:
         state.pipeline_cost += resp.cost_usd
 
         # ── 2. Run The Critic Audit ───────────────────────────────────
-        passed, critic_feedback, critic_cost = _run_critic_audit(
+        passed, critic_feedback, critic_cost, critic_confidence, critic_spans = _run_critic_audit(
             pruned_context, draft_answer
         )
         state.pipeline_cost += critic_cost
+        # Persist critic confidence + offending spans (Feature 4.3); overwritten
+        # below with the re-audit values if regeneration occurs.
+        state.generation.critic_confidence = critic_confidence
+        state.generation.critic_spans = critic_spans
 
         # ── 3. Self-Correction Loop (Max 1 Retry) ──────────────────────
         if not passed and state.generation.retry_count < 1:
@@ -178,6 +240,23 @@ def generator_node(state: AletheiaState) -> AletheiaState:
             state.generation.draft_answer = retry_resp.content.strip()
             state.pipeline_cost += retry_resp.cost_usd
             logger.info("Automatic regeneration completed successfully.")
+
+            # Re-audit the regenerated draft so the FINAL answer is verified
+            # (Issue 8). The single-retry cap above already prevents loops.
+            recheck_passed, recheck_feedback, recheck_cost, critic_confidence, critic_spans = _run_critic_audit(
+                pruned_context, state.generation.draft_answer
+            )
+            state.pipeline_cost += recheck_cost
+            # Refresh feedback to describe the returned draft, not the discarded one (Issue 9).
+            state.generation.critic_feedback = (
+                None if recheck_passed else recheck_feedback
+            )
+            state.generation.critic_confidence = critic_confidence
+            state.generation.critic_spans = critic_spans
+            logger.info(
+                "Post-regeneration critic verdict: %s",
+                "passed" if recheck_passed else "still failing",
+            )
         else:
             state.generation.critic_feedback = critic_feedback
 
@@ -187,6 +266,12 @@ def generator_node(state: AletheiaState) -> AletheiaState:
             latency,
             state.pipeline_cost,
         )
+
+        # Populate the answer cache for future identical (query, context) pairs.
+        _answer_cache_put(cache_key, {
+            "answer": state.generation.draft_answer,
+            "critic_feedback": state.generation.critic_feedback,
+        })
 
         return state
 

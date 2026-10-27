@@ -80,7 +80,10 @@ def test_live_ingestion_end_to_end(tmp_path: Path):
 
     res = service.ingest_files([pdf1, pdf2, pdf3], progress_cb=progress_tracker)
 
-    assert res["status"] == "success"
+    # Dense + lexical always succeed; graph layer may be offline in CI, so the
+    # honest contract is success (graph synced) OR partial_success (graph offline).
+    assert res["status"] in ("success", "partial_success")
+    assert (res["status"] == "success") == (res["neo4j_status"] == "synced")
     assert res["ingested_count"] == 3
     assert res["new_chunks"] >= 3
     assert res["total_documents"] == 3
@@ -131,7 +134,7 @@ def test_deduplication(tmp_path: Path):
 
     # First upload
     res1 = service.ingest_files([pdf])
-    assert res1["status"] == "success"
+    assert res1["status"] in ("success", "partial_success")
     assert res1["ingested_count"] == 1
     orig_chunks = res1["total_chunks"]
 
@@ -168,6 +171,23 @@ def test_complete_memory_wipe(tmp_path: Path):
     assert cat["total_documents"] == 0
     assert len(cat["documents"]) == 0
     assert len(list(uploads_dir.glob("*.pdf"))) == 0
+
+    # Reload the on-disk indexes and confirm they truly hold zero entries
+    # (prove clearance, not just that the return value said 0) — Issue 40.
+    from memory.vector_store import VectorStore
+    from memory.sparse_store import SparseStore
+    v_store = VectorStore(
+        index_path=str(data_dir / "faiss_index.bin"),
+        metadata_path=str(data_dir / "faiss_metadata.json"),
+    )
+    v_store.load_if_exists()
+    assert v_store.size == 0
+    s_store = SparseStore(
+        index_path=str(data_dir / "bm25_index.pkl"),
+        metadata_path=str(data_dir / "bm25_metadata.json"),
+    )
+    s_store.load_if_exists()
+    assert s_store.size == 0
 
 
 def test_ui_rendering_helpers():
@@ -221,3 +241,48 @@ def test_ui_rendering_helpers():
         "message": "Memory wiped to clean slate.",
     })
     assert "🗑️" in wiped_status
+
+
+
+def test_ingestion_populates_neo4j_graph_layer(tmp_path, monkeypatch):
+    """Guard against Issue 37: ingestion must call the Neo4j client with the
+    SIGNATURE IT ACTUALLY HAS, and report neo4j_status='synced' when the graph
+    layer accepts the writes. A MagicMock stands in for a live Neo4j so this runs
+    in CI; crucially it asserts upsert_document is called with the kwargs the
+    service passes (url=, authors=, publication_year=) — a mismatch would raise
+    TypeError and previously was swallowed as 'offline'.
+    """
+    import inspect
+    from unittest.mock import MagicMock
+    import memory.neo4j_client as neo4j_mod
+    from memory.neo4j_client import Neo4jClient
+
+    data_dir = tmp_path / "data"
+    uploads_dir = tmp_path / "uploads"
+
+    # Validate the real signature accepts the service's kwargs BEFORE mocking it out,
+    # so the mock test can never pass against a broken signature.
+    inspect.signature(Neo4jClient.upsert_document).bind(
+        None, doc_id="d", title="t", url="u", authors=["a"], publication_year=2021
+    )
+
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.__exit__.return_value = False
+    monkeypatch.setattr(neo4j_mod, "Neo4jClient", lambda *a, **k: mock_client)
+
+    service = LiveIngestionService(data_dir=data_dir, uploads_dir=uploads_dir)
+    pdf = _create_sample_pdf(
+        tmp_path / "paper_graph.pdf",
+        "GraphTest: Structured Memory",
+        "GraphTest proposes a hierarchical knowledge graph for retrieval augmentation.",
+    )
+    res = service.ingest_files([pdf])
+
+    # Graph layer accepted the writes -> full success, not partial.
+    assert res["neo4j_status"] == "synced", res
+    assert res["status"] == "success", res
+    # upsert_document was actually called (graph layer populated), with valid kwargs.
+    assert mock_client.upsert_document.called
+    _, kwargs = mock_client.upsert_document.call_args
+    assert "doc_id" in kwargs
