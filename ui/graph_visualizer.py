@@ -2,7 +2,7 @@
 Interactive Knowledge Graph Visualizer for Project Aletheia (ui/graph_visualizer.py)
 
 Generates dynamic, force-directed network graphs using Vis.js:
-- CodeRabbit visual theme (Dark Mauve canvas #0b0d14, Orange #FF570A, Mint #00F2A5, Cobalt #3B82F6)
+- Reading-room palette (ink canvas #15191c, oxblood #a23c35, brass #b79a63, sage #7fa06a)
 - Entity categorization with distinct glyphs and colors
 - Physics stabilization, zoom, pan, edge routing, and node inspection
 - Seamless dual-mode: Works from Neo4j Cypher queries or parsed triple strings
@@ -18,16 +18,18 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger("ui.graph_visualizer")
 
-# Entity type color palettes matching CodeRabbit theme
+# Entity type palette — reading-room bound-journal tones. Category is encoded by
+# BOTH hue and shape (the shape carries meaning on its own, so the graph stays
+# legible without relying on color alone).
 PALETTES = {
-    "Model": {"bg": "#FF570A", "border": "#FF782E", "font": "#FFFFFF", "shape": "box"},
-    "Paper": {"bg": "#FF570A", "border": "#FF8A4C", "font": "#FFFFFF", "shape": "box"},
-    "Methodology": {"bg": "#3B82F6", "border": "#60A5FA", "font": "#FFFFFF", "shape": "ellipse"},
-    "Mechanism": {"bg": "#3B82F6", "border": "#60A5FA", "font": "#FFFFFF", "shape": "ellipse"},
-    "Benchmark": {"bg": "#00F2A5", "border": "#34D399", "font": "#0B0D14", "shape": "diamond"},
-    "Metric": {"bg": "#00F2A5", "border": "#34D399", "font": "#0B0D14", "shape": "diamond"},
-    "Concept": {"bg": "#FBBF24", "border": "#FCD34D", "font": "#0B0D14", "shape": "dot"},
-    "Default": {"bg": "#1E2235", "border": "#8E95AA", "font": "#F3F4F6", "shape": "box"},
+    "Model": {"bg": "#a23c35", "border": "#c65a4f", "font": "#f7efe6", "shape": "box"},
+    "Paper": {"bg": "#8a332d", "border": "#b24a41", "font": "#f7efe6", "shape": "box"},
+    "Methodology": {"bg": "#2f3a40", "border": "#b79a63", "font": "#f1ece1", "shape": "ellipse"},
+    "Mechanism": {"bg": "#2f3a40", "border": "#b79a63", "font": "#f1ece1", "shape": "ellipse"},
+    "Benchmark": {"bg": "#3a4433", "border": "#7fa06a", "font": "#f1ece1", "shape": "diamond"},
+    "Metric": {"bg": "#3a4433", "border": "#7fa06a", "font": "#f1ece1", "shape": "diamond"},
+    "Concept": {"bg": "#2a2620", "border": "#b79a63", "font": "#e7dfd3", "shape": "dot"},
+    "Default": {"bg": "#232a2f", "border": "#8d8676", "font": "#f1ece1", "shape": "box"},
 }
 
 
@@ -83,10 +85,10 @@ def parse_triples_to_graph(triples: List[str]) -> Tuple[List[Dict[str, Any]], Li
                 "id": head_clean,
                 "label": head_clean,
                 "title": f"<b>{html.escape(head_clean)}</b><br>Type: {ent_type}",
-                "color": {"background": style["bg"], "border": style["border"], "highlight": {"background": "#FF702E", "border": "#FFFFFF"}},
-                "font": {"color": style["font"], "size": 13, "face": "Inter, sans-serif"},
+                "color": {"background": style["bg"], "border": style["border"], "highlight": {"background": "#c65a4f", "border": "#f1ece1"}},
+                "font": {"color": style["font"], "size": 13, "face": "Spectral, Georgia, serif"},
                 "shape": style["shape"],
-                "shadow": {"enabled": True, "color": "rgba(0,0,0,0.5)", "size": 6},
+                "shadow": {"enabled": True, "color": "rgba(0,0,0,0.4)", "size": 5},
                 "margin": 10,
             }
 
@@ -98,10 +100,10 @@ def parse_triples_to_graph(triples: List[str]) -> Tuple[List[Dict[str, Any]], Li
                 "id": tail_clean,
                 "label": tail_clean,
                 "title": f"<b>{html.escape(tail_clean)}</b><br>Type: {ent_type}",
-                "color": {"background": style["bg"], "border": style["border"], "highlight": {"background": "#FF702E", "border": "#FFFFFF"}},
-                "font": {"color": style["font"], "size": 12, "face": "Inter, sans-serif"},
+                "color": {"background": style["bg"], "border": style["border"], "highlight": {"background": "#c65a4f", "border": "#f1ece1"}},
+                "font": {"color": style["font"], "size": 12, "face": "Spectral, Georgia, serif"},
                 "shape": style["shape"],
-                "shadow": {"enabled": True, "color": "rgba(0,0,0,0.5)", "size": 6},
+                "shadow": {"enabled": True, "color": "rgba(0,0,0,0.4)", "size": 5},
                 "margin": 8,
             }
 
@@ -114,8 +116,8 @@ def parse_triples_to_graph(triples: List[str]) -> Tuple[List[Dict[str, Any]], Li
                 "label": relation.lower().replace("_", " "),
                 "title": f"Relation: <b>{html.escape(relation)}</b>",
                 "arrows": {"to": {"enabled": True, "scaleFactor": 0.8}},
-                "color": {"color": "rgba(255, 87, 10, 0.45)", "highlight": "#FF570A", "hover": "#FF782E"},
-                "font": {"color": "#9499AD", "size": 10, "align": "middle", "background": "rgba(11, 13, 20, 0.75)"},
+                "color": {"color": "rgba(183, 154, 99, 0.42)", "highlight": "#a23c35", "hover": "#c65a4f"},
+                "font": {"color": "#8d8676", "size": 10, "align": "middle", "background": "rgba(21, 25, 28, 0.78)", "face": "Inter, sans-serif"},
                 "smooth": {"type": "curvedCW", "roundness": 0.15},
             })
 
@@ -172,22 +174,20 @@ def generate_interactive_graph_html(
     title: str = "Knowledge Graph Diffusion",
 ) -> str:
     """
-    Render a self-contained Vis.js network canvas with dark CodeRabbit aesthetics.
+    Render a self-contained Vis.js network canvas in the reading-room palette.
     """
     if not nodes:
         return (
             f"<div style='height:{height_px}px; display:flex; flex-direction:column; align-items:center; "
             f"justify-content:center; "
-            f"background:radial-gradient(circle at 50% 30%, rgba(255,87,10,0.06), transparent 60%), "
-            f"linear-gradient(180deg, rgba(20,24,36,0.6), rgba(11,13,20,0.6)); "
-            f"backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); "
-            f"border:1px solid rgba(255,255,255,0.08); "
-            f"border-radius:12px; color:#8E95AA; font-family:Inter,sans-serif; text-align:center; padding:24px; "
-            f"box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 26px rgba(0,0,0,0.3);'>"
-            f"<div style='font-size:2.1rem; margin-bottom:10px; opacity:0.85; "
-            f"filter:drop-shadow(0 0 10px rgba(255,87,10,0.25));'>🕸️</div>"
-            f"<div style='font-weight:700; font-size:0.95rem; color:#F3F4F6; letter-spacing:-0.01em;'>No Active Knowledge Graph Nodes</div>"
-            f"<div style='font-size:0.8rem; margin-top:6px; max-width:320px; line-height:1.5;'>Run a literature query or ingest papers to inspect entity relationships.</div>"
+            f"background:#11161a; "
+            f"border:1px solid rgba(183,154,99,0.20); "
+            f"border-radius:3px; color:#8d8676; font-family:Georgia,serif; text-align:center; padding:24px;'>"
+            f"<div style='font-family:Spectral,Georgia,serif; font-style:italic; font-size:1.05rem; color:#cbc3b4;'>"
+            f"The graph is empty</div>"
+            f"<div style='font-family:Georgia,serif; font-size:0.9rem; margin-top:6px; max-width:340px; line-height:1.55;'>"
+            f"Ask a question or add papers to the library, and the relationships "
+            f"Aletheia finds between them will be drawn here.</div>"
             f"</div>"
         )
 
@@ -205,8 +205,8 @@ def generate_interactive_graph_html(
         body {{
             margin: 0;
             padding: 0;
-            background: #0b0d14;
-            color: #F3F4F6;
+            background: #15191c;
+            color: #f1ece1;
             font-family: 'Inter', -apple-system, sans-serif;
             overflow: hidden;
         }}
@@ -216,36 +216,36 @@ def generate_interactive_graph_html(
             left: 10px;
             z-index: 100;
             display: flex;
-            gap: 6px;
+            gap: 10px;
             align-items: center;
-            background: rgba(19, 22, 34, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 4px 10px;
-            font-size: 0.76rem;
+            background: rgba(28, 34, 39, 0.9);
+            border: 1px solid rgba(183, 154, 99, 0.20);
+            border-radius: 3px;
+            padding: 5px 11px;
+            font-size: 0.78rem;
         }}
         .tb-badge {{
-            background: rgba(255, 87, 10, 0.15);
-            color: #FF570A;
-            border: 1px solid rgba(255, 87, 10, 0.3);
-            border-radius: 12px;
+            background: transparent;
+            color: #c65a4f;
+            border: 1px solid rgba(162, 60, 53, 0.5);
+            border-radius: 2px;
             padding: 2px 8px;
-            font-weight: 600;
+            font-weight: 500;
         }}
         .tb-btn {{
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #9499AD;
-            border-radius: 6px;
-            padding: 3px 8px;
+            background: transparent;
+            border: 1px solid rgba(183, 154, 99, 0.20);
+            color: #cbc3b4;
+            border-radius: 3px;
+            padding: 3px 9px;
             cursor: pointer;
-            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+            transition: color 0.18s, border-color 0.18s;
         }}
         .tb-btn:hover {{
-            background: #FF570A;
-            color: #FFFFFF;
-            border-color: #FF570A;
+            background: transparent;
+            color: #f1ece1;
+            border-color: #b79a63;
         }}
         #legend {{
             position: absolute;
@@ -253,47 +253,46 @@ def generate_interactive_graph_html(
             right: 10px;
             z-index: 100;
             display: flex;
-            gap: 8px;
-            background: rgba(19, 22, 34, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            padding: 4px 10px;
+            gap: 12px;
+            background: rgba(28, 34, 39, 0.9);
+            border: 1px solid rgba(183, 154, 99, 0.20);
+            border-radius: 3px;
+            padding: 5px 11px;
             font-size: 0.7rem;
-            color: #9499AD;
+            color: #8d8676;
         }}
         .lg-item {{
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }}
         .lg-dot {{
             width: 8px;
             height: 8px;
-            border-radius: 50%;
+            border-radius: 1px;
         }}
         #{container_id} {{
             width: 100%;
             height: {height_px}px;
-            background: radial-gradient(circle at center, #131624 0%, #0b0d14 100%);
-            border: 1px solid rgba(255, 87, 10, 0.2);
-            border-radius: 12px;
+            background: #11161a;
+            border: 1px solid rgba(183, 154, 99, 0.20);
+            border-radius: 3px;
         }}
     </style>
 </head>
 <body>
     <div id="toolbar">
-        <span class="tb-badge">{len(nodes)} Nodes</span>
-        <span class="tb-badge" style="background:rgba(0,242,165,0.12); color:#00F2A5; border-color:rgba(0,242,165,0.3);">{len(edges)} Edges</span>
-        <button class="tb-btn" onclick="network.fit({{animation: true}})">Fit View</button>
+        <span class="tb-badge">{len(nodes)} nodes</span>
+        <span class="tb-badge" style="color:#b79a63; border-color:rgba(183,154,99,0.45);">{len(edges)} links</span>
+        <button class="tb-btn" onclick="network.fit({{animation: true}})">Fit view</button>
         <button class="tb-btn" id="physics-btn" onclick="togglePhysics()">Freeze</button>
     </div>
 
     <div id="legend">
-        <div class="lg-item"><span class="lg-dot" style="background:#FF570A;"></span> Model / Paper</div>
-        <div class="lg-item"><span class="lg-dot" style="background:#3B82F6;"></span> Mechanism</div>
-        <div class="lg-item"><span class="lg-dot" style="background:#00F2A5;"></span> Benchmark</div>
-        <div class="lg-item"><span class="lg-dot" style="background:#FBBF24;"></span> Concept</div>
+        <div class="lg-item"><span class="lg-dot" style="background:#a23c35;"></span> Model / paper</div>
+        <div class="lg-item"><span class="lg-dot" style="background:#b79a63;"></span> Mechanism</div>
+        <div class="lg-item"><span class="lg-dot" style="background:#7fa06a;"></span> Benchmark</div>
+        <div class="lg-item"><span class="lg-dot" style="background:#8d8676;"></span> Concept</div>
     </div>
 
     <div id="{container_id}"></div>

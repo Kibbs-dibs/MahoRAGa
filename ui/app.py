@@ -1,8 +1,10 @@
 """
-Project Aletheia — CodeRabbit-Inspired Research & Review Console (ui/app.py)
+Project Aletheia — Reading-Room Research Console (ui/app.py)
 
 Autonomous Multi-Agent AI Literature Reviewer:
-- CodeRabbit Developer Aesthetic: CR Orange (#FF570A), Mauve Charcoal (#0b0d14), CR Mint (#00F2A5)
+- "Reading room" aesthetic: warm ink surfaces (#15191c), archival-paper text
+  (#f1ece1), a scholarly oxblood accent (#a23c35) and muted brass rules
+  (#b79a63); Spectral serif for reading, Inter for controls.
 - Three-Layer Global Memory (Neo4j, FAISS, BM25)
 - AttentionRAG Context Compression (6.3x Pruning)
 - The Critic QA Verification & Automated Walkthrough
@@ -38,794 +40,396 @@ logger = logging.getLogger("ui.app")
 # ═══════════════════════════════════════════════════════════════════════════
 
 CUSTOM_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-:root {
-    --cr-orange: #FF570A;
-    --cr-orange-hover: #FF6824;
-    --cr-orange-subtle: rgba(255, 87, 10, 0.10);
-    --cr-mint: #00F2A5;
-    --cr-mint-subtle: rgba(0, 242, 165, 0.10);
-    --cr-cobalt: #3B82F6;
-    --cr-cobalt-subtle: rgba(59, 130, 246, 0.10);
-    --cr-canvas: #090a0f;
-    --cr-card: #10121a;
-    --cr-card-alt: #151822;
-    --cr-card-hover: #191c28;
-    --cr-border: rgba(255, 255, 255, 0.07);
-    --cr-border-subtle: rgba(255, 255, 255, 0.04);
-    --cr-text-primary: #F8FAFC;
-    --cr-text-secondary: #94A3B8;
-    --cr-text-muted: #64748B;
-    --cr-mono: 'JetBrains Mono', monospace;
-}
-
-body, .gradio-container {
-    background: #090a0f !important;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    color: var(--cr-text-primary) !important;
-    letter-spacing: -0.011em;
-}
-
-h1, h2, h3, h4, .cr-font-brand {
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    letter-spacing: -0.025em;
-    font-weight: 700;
-}
-
-code, pre, .cr-mono {
-    font-family: var(--cr-mono) !important;
-}
-
-/* ── Console Header Card ─────────────────────────────────────────────────── */
-.cr-header-card {
-    background: #10121a !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 12px !important;
-    padding: 16px 22px !important;
-    margin-bottom: 14px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
-}
-
-.cr-logo-wrap {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.cr-brand-glyph {
-    width: 38px;
-    height: 38px;
-    background: #161924;
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #F8FAFC;
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-}
-
-.cr-brand-glyph:hover {
-    border-color: rgba(255, 87, 10, 0.45);
-    background: #191d2a;
-}
-
-.cr-brand-title {
-    font-size: 1.35rem !important;
-    font-weight: 700 !important;
-    color: #FFFFFF;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-}
-
-.cr-title-sub {
-    font-size: 0.80rem;
-    font-weight: 500;
-    color: var(--cr-text-muted);
-    letter-spacing: 0.06em;
-    font-family: var(--cr-mono);
-}
-
-.cr-version-pill {
-    font-size: 0.68rem;
-    font-family: var(--cr-mono);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    padding: 3px 8px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--cr-border);
-    color: var(--cr-text-secondary);
-}
-
-.cr-header-desc {
-    color: var(--cr-text-secondary);
-    font-size: 0.80rem;
-    margin-top: 4px;
-    line-height: 1.4;
-    letter-spacing: -0.005em;
-}
-
-.cr-meta-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.cr-meta-item {
-    font-size: 0.74rem;
-    font-weight: 500;
-    color: var(--cr-text-secondary);
-    background: #12141c;
-    border: 1px solid var(--cr-border);
-    padding: 4px 10px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.cr-pulse-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--cr-mint);
-    border-radius: 50%;
-    box-shadow: 0 0 6px rgba(0, 242, 165, 0.4);
-}
-
-/* ── Badge Pills ────────────────────────────────────────────────────────── */
-.cr-badge-pill {
-    font-size: 0.70rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 4px;
-    letter-spacing: 0.02em;
-}
-
-.cr-badge-orange {
-    background: rgba(255, 87, 10, 0.10) !important;
-    border: 1px solid rgba(255, 87, 10, 0.30) !important;
-    color: #FFA066 !important;
-}
-
-.cr-badge-mint {
-    background: rgba(0, 242, 165, 0.08) !important;
-    border: 1px solid rgba(0, 242, 165, 0.25) !important;
-    color: #4EFEB3 !important;
-}
-
-.cr-badge-subtle {
-    background: rgba(255, 255, 255, 0.03) !important;
-    border: 1px solid var(--cr-border) !important;
-    color: var(--cr-text-muted) !important;
-}
-
-/* ── Pipeline Stepper ───────────────────────────────────────────────────── */
-.stepper-container, .cr-stepper-box {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-    background: #10121a;
-    border: 1px solid var(--cr-border);
-    border-radius: 10px;
-    padding: 8px 14px;
-    margin-bottom: 14px;
-}
-
-.step-node {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-}
-
-.step-idx {
-    font-family: var(--cr-mono);
-    font-size: 0.70rem;
-    font-weight: 600;
-    opacity: 0.65;
-}
-
-.step-title {
-    font-weight: 500;
-}
-
-.step-badge {
-    font-size: 0.68rem;
-    font-family: var(--cr-mono);
-    opacity: 0.85;
-    margin-left: 2px;
-}
-
-.step-pending {
-    background: transparent;
-    color: var(--cr-text-muted);
-}
-
-.step-active {
-    background: rgba(255, 87, 10, 0.10);
-    color: #FFA066;
-    border-color: rgba(255, 87, 10, 0.35);
-    font-weight: 600;
-}
-
-.step-done {
-    background: rgba(0, 242, 165, 0.06);
-    color: #00F2A5;
-    border-color: rgba(0, 242, 165, 0.20);
-}
-
-.cr-stepper-status {
-    font-size: 0.76rem;
-    font-weight: 500;
-    color: var(--cr-text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.cr-timer-pill {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--cr-border);
-    padding: 2px 7px;
-    border-radius: 4px;
-    font-family: var(--cr-mono);
-    font-size: 0.72rem;
-    color: var(--cr-text-secondary);
-}
-
-/* ── Metrics Scorecard ──────────────────────────────────────────────────── */
-.metrics-grid, .cr-scorecard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 8px;
-    margin: 8px 0 14px 0;
-}
-
-.metric-card, .cr-score-card {
-    background: #10121a;
-    border: 1px solid var(--cr-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    text-align: left;
-    transition: border-color 0.2s ease;
-}
-
-.metric-card:hover, .cr-score-card:hover {
-    border-color: rgba(255, 255, 255, 0.14);
-}
-
-.metric-value, .cr-score-val {
-    font-family: 'Inter', sans-serif;
-    font-size: 1.22rem;
-    font-weight: 700;
-    color: var(--cr-text-primary);
-    letter-spacing: -0.02em;
-}
-
-.metric-label, .cr-score-lbl {
-    font-size: 0.68rem;
-    font-weight: 500;
-    color: var(--cr-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 2px;
-}
-
-/* ── Chatbot & Message Canvas ───────────────────────────────────────────── */
-.gradio-chatbot, #aletheia-chatbot {
-    background: #0d0f15 !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* Primary Button: Refined Matte Ember */
-.gr-button-primary, button.primary {
-    background: #FF570A !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    color: #FFFFFF !important;
-    font-weight: 600 !important;
-    font-size: 0.88rem !important;
-    border-radius: 8px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 12px rgba(255, 87, 10, 0.2) !important;
-    transition: all 0.18s ease !important;
-}
-
-.gr-button-primary:hover, button.primary:hover {
-    background: #FF6824 !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 6px 18px rgba(255, 87, 10, 0.3) !important;
-    transform: translateY(-1px) !important;
-}
-
-.gr-button-primary:active, button.primary:active {
-    transform: scale(0.99) !important;
-}
-
-/* Secondary Button: Subtle Surface */
-.gr-button-secondary {
-    background: #141722 !important;
-    border: 1px solid var(--cr-border) !important;
-    color: var(--cr-text-secondary) !important;
-    font-size: 0.82rem !important;
-    border-radius: 8px !important;
-    transition: all 0.15s ease !important;
-}
-
-.gr-button-secondary:hover {
-    background: #191c28 !important;
-    color: var(--cr-text-primary) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* ── Workspace Segmented Tabs ───────────────────────────────────────────── */
-#workspace-tabs > .tab-nav {
-    background: #10121a !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 8px !important;
-    padding: 3px !important;
-    gap: 3px !important;
-    margin-bottom: 12px !important;
-}
-
-#workspace-tabs > .tab-nav button {
-    border-radius: 6px !important;
-    padding: 6px 14px !important;
-    font-size: 0.80rem !important;
-    font-weight: 500 !important;
-    color: var(--cr-text-secondary) !important;
-    border: 1px solid transparent !important;
-    transition: all 0.15s ease !important;
-}
-
-#workspace-tabs > .tab-nav button:hover {
-    background: rgba(255, 255, 255, 0.03) !important;
-    color: var(--cr-text-primary) !important;
-}
-
-#workspace-tabs > .tab-nav button.selected {
-    background: #161924 !important;
-    color: #F8FAFC !important;
-    border: 1px solid rgba(255, 255, 255, 0.09) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* ── Document List & Cards ──────────────────────────────────────────────── */
-.cr-doc-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 220px;
-    overflow-y: auto;
-    margin-top: 8px;
-    padding-right: 4px;
-}
-
-.cr-doc-card {
-    background: #131620;
-    border: 1px solid var(--cr-border);
-    border-radius: 6px;
-    padding: 8px 11px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: border-color 0.15s ease;
-}
-
-.cr-doc-card:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-.cr-doc-info {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    width: 100%;
-    min-width: 0 !important;
-}
-
-.cr-doc-title {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--cr-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100% !important;
-}
-
-.cr-doc-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    align-items: center;
-}
-
-.cr-doc-empty {
-    font-size: 0.80rem;
-    color: var(--cr-text-muted);
-    padding: 12px;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.01);
-    border-radius: 6px;
-    border: 1px dashed var(--cr-border);
-}
-
-.cr-status-box {
-    padding: 7px 11px;
-    border-radius: 6px;
-    margin: 8px 0;
-    font-size: 0.80rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.cr-subhead {
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--cr-text-muted);
-    margin-top: 10px;
-    margin-bottom: 4px;
-}
+@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ELEVATION LAYER — Premium depth, glassmorphism & micro-animation refinements
-   (Overrides flat surfaces from the base layer above; aligned with the
-   modern-ui-designer skill: layered radial canvas, glass cards, pulse glows.)
+   ALETHEIA — "Reading Room" design system.
+   A bound-journal palette (deep ink surfaces, warm archival paper text,
+   a scholarly oxblood accent, muted brass rules) for a literature-research
+   instrument. One reading serif (Spectral) carries synthesis + headings; a
+   quiet sans (Inter) handles dense controls. No neon, no glass-card kit, no
+   decorative monospace — structure is drawn with ink-weight rules, not shadows.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Ambient canvas: subtle multi-point radial glow instead of a flat void */
+:root {
+    --ink:          #15191c;   /* darkest surface — warm slate ink, not tinted black */
+    --ink-raised:   #1c2227;   /* raised panel */
+    --ink-sunken:   #11161a;   /* reading well / chat canvas */
+    --paper:        #f1ece1;   /* archival paper — primary text on dark */
+    --paper-dim:    #cbc3b4;   /* secondary text */
+    --paper-faint:  #8d8676;   /* tertiary / captions */
+    --oxblood:      #a23c35;   /* the single accent — library-binding red */
+    --oxblood-soft: #c65a4f;   /* lighter oxblood for text-on-dark legibility */
+    --brass:        #b79a63;   /* muted brass — rules, marks, "done" states */
+    --brass-dim:    rgba(183, 154, 99, 0.22);
+    --rule:         rgba(183, 154, 99, 0.20);  /* brass hairline */
+    --rule-faint:   rgba(241, 236, 225, 0.08);
+    --serif: 'Spectral', Georgia, 'Times New Roman', serif;
+    --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --ok:   #7fa06a;   /* muted sage — verified (not acid green) */
+    --warn: #c9972f;   /* ochre — caution */
+    --bad:  #b6443c;   /* oxblood-adjacent — failure */
+}
+
+/* ── Canvas: a quiet reading-room gradient, no multi-point neon glows ─────── */
 body, .gradio-container {
     background:
-        radial-gradient(900px circle at 12% -8%, rgba(255, 87, 10, 0.07), transparent 42%),
-        radial-gradient(1000px circle at 100% 0%, rgba(59, 130, 246, 0.06), transparent 46%),
-        radial-gradient(1200px circle at 50% 120%, rgba(0, 242, 165, 0.045), transparent 50%),
-        #090a0f !important;
+        radial-gradient(1200px 600px at 78% -12%, rgba(162, 60, 53, 0.08), transparent 55%),
+        var(--ink) !important;
     background-attachment: fixed !important;
+    color: var(--paper) !important;
+    font-family: var(--sans) !important;
+    letter-spacing: 0;
 }
+.gradio-container { max-width: 1380px !important; margin: 0 auto !important; }
 
-.gradio-container { max-width: 1480px !important; margin: 0 auto !important; }
+h1, h2, h3, h4 { font-family: var(--serif) !important; font-weight: 500; letter-spacing: -0.01em; color: var(--paper); }
 
-/* Shared smooth easing for all interactive surfaces */
-.cr-header-card, .metric-card, .cr-score-card, .cr-doc-card,
-.stepper-container, .cr-stepper-box, .gr-button-primary, button.primary,
-.gr-button-secondary, #workspace-tabs > .tab-nav button {
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-/* Header — glass surface with an accent top hairline */
+/* ── Masthead: a bound-journal title plate, not a telemetry bar ──────────── */
 .cr-header-card {
     position: relative;
-    background: linear-gradient(180deg, rgba(22, 26, 38, 0.72), rgba(14, 16, 24, 0.72)) !important;
-    backdrop-filter: blur(18px) !important;
-    -webkit-backdrop-filter: blur(18px) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
-    overflow: hidden;
+    background: var(--ink-raised) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+    border-radius: 0 !important;
+    padding: 22px 26px 18px !important;
+    margin-bottom: 0 !important;
+    box-shadow: none !important;
 }
-.cr-header-card::before {
+/* a single hairline of oxblood sits under the masthead like a binding edge */
+.cr-header-card::after {
     content: "";
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--cr-orange) 20%, var(--cr-mint) 55%, var(--cr-cobalt) 85%, transparent);
-    opacity: 0.8;
+    position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+    background: linear-gradient(90deg, var(--oxblood) 0%, var(--oxblood) 18%, transparent 18%);
 }
-
+.cr-logo-wrap { display: flex; align-items: baseline; gap: 16px; }
 .cr-brand-glyph {
-    background: linear-gradient(145deg, #1b1f2c, #121521) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--oxblood-soft);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: transparent;
+    align-self: center;
 }
-.cr-brand-glyph:hover {
-    color: var(--cr-orange) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(255, 87, 10, 0.25) !important;
-    transform: translateY(-1px);
+.cr-brand-glyph:hover { border-color: var(--oxblood); color: var(--oxblood-soft); }
+.cr-brand-title {
+    font-family: var(--serif) !important;
+    font-size: 1.7rem !important;
+    font-weight: 500 !important;
+    color: var(--paper) !important;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+}
+.cr-title-sub {
+    font-family: var(--serif) !important;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 0.98rem;
+    color: var(--paper-dim) !important;
+    letter-spacing: 0;
+}
+.cr-header-desc {
+    color: var(--paper-dim) !important;
+    font-family: var(--serif) !important;
+    font-size: 0.95rem;
+    font-style: italic;
+    margin-top: 7px;
+    line-height: 1.45;
+    max-width: 62ch;
+}
+.cr-version-pill {
+    font-family: var(--sans);
+    font-size: 0.68rem; font-weight: 500;
+    padding: 2px 7px; border-radius: 2px;
+    background: transparent; border: 1px solid var(--rule);
+    color: var(--paper-faint);
 }
 
-/* Live pulse dot — soft breathing glow for "online" status */
-.cr-pulse-dot { animation: crPulseGlow 2.4s ease-in-out infinite; }
-@keyframes crPulseGlow {
-    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(0, 242, 165, 0.65); }
-    50% { opacity: 0.55; box-shadow: 0 0 2px rgba(0, 242, 165, 0.2); }
+/* ── Masthead meta (right side): a ledger line, not glowing chips ────────── */
+.cr-meta-bar { display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline; justify-content: flex-end; }
+.cr-meta-item {
+    font-family: var(--sans);
+    font-size: 0.8rem; font-weight: 400;
+    color: var(--paper-dim);
+    background: transparent; border: none; padding: 0;
+    display: flex; align-items: baseline; gap: 8px;
+}
+.cr-meta-item .cr-mono { font-family: var(--serif) !important; font-style: italic; font-size: 0.8rem !important; color: var(--paper-faint); }
+.cr-pulse-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok); align-self: center;
+    box-shadow: 0 0 0 3px rgba(127, 160, 106, 0.14);
 }
 
-/* Stepper — glass tray */
+/* ── Badge pills: flat ink labels with a brass hairline ──────────────────── */
+.cr-badge-pill { font-family: var(--sans); font-size: 0.68rem; font-weight: 500; padding: 1px 7px; border-radius: 2px; letter-spacing: 0; }
+.cr-badge-orange { background: transparent !important; border: 1px solid var(--oxblood) !important; color: var(--oxblood-soft) !important; }
+.cr-badge-mint   { background: transparent !important; border: 1px solid var(--brass-dim) !important; color: var(--brass) !important; }
+.cr-badge-subtle { background: transparent !important; border: 1px solid var(--rule-faint) !important; color: var(--paper-faint) !important; }
+
+/* ═══ Pipeline progression — a ruled timeline (a genuine sequence) ═══════════ */
 .stepper-container, .cr-stepper-box {
-    background: linear-gradient(180deg, rgba(20, 24, 36, 0.66), rgba(14, 16, 24, 0.66)) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3) !important;
+    display: flex; flex-wrap: wrap; gap: 0; align-items: center; justify-content: space-between;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+    border-radius: 0 !important;
+    padding: 12px 26px !important;
+    margin: 0 0 20px 0 !important;
+    box-shadow: none !important;
 }
-/* Active pipeline node breathes while running */
-.step-active {
-    animation: crStepBreath 1.8s ease-in-out infinite;
-    box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18) !important;
-}
-@keyframes crStepBreath {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.25), 0 4px 14px rgba(255, 87, 10, 0.18); }
-    50% { box-shadow: 0 0 0 1px rgba(255, 87, 10, 0.45), 0 6px 20px rgba(255, 87, 10, 0.32); }
-}
-
-/* Metric scorecards — glass with accent top edge + lift on hover */
-.metric-card, .cr-score-card {
+.stepper-container > div:first-child { gap: 0 !important; }
+.step-node {
     position: relative;
-    background: linear-gradient(180deg, rgba(20, 24, 36, 0.6), rgba(14, 16, 24, 0.6)) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 10px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28) !important;
+    display: flex; align-items: baseline; gap: 7px;
+    padding: 4px 16px 4px 0;
+    margin-right: 16px;
+    font-family: var(--sans);
+    font-size: 0.82rem; font-weight: 400;
+    border: none !important;
+    color: var(--paper-faint);
+}
+/* a connecting rule between stations */
+.step-node:not(:last-child)::after {
+    content: ""; position: absolute; right: 4px; top: 50%; width: 10px; height: 1px;
+    background: var(--rule);
+}
+.step-idx { font-family: var(--serif); font-style: italic; font-size: 0.85rem; color: var(--paper-faint); opacity: 0.8; }
+.step-title { font-weight: 400; }
+.step-badge { font-size: 0.72rem; color: var(--brass); margin-left: 2px; }
+.step-pending { color: var(--paper-faint); }
+.step-done    { color: var(--paper-dim); }
+.step-done .step-idx { color: var(--brass); opacity: 1; }
+.step-active  { color: var(--paper); font-weight: 500; }
+.step-active .step-idx { color: var(--oxblood-soft); opacity: 1; }
+/* the single orchestrated motion: only the active station marks itself */
+.step-active::before {
+    content: ""; position: absolute; left: -2px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 14px; background: var(--oxblood);
+    animation: alethPulse 1.9s ease-in-out infinite;
+}
+@keyframes alethPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.cr-stepper-status { font-family: var(--sans); font-size: 0.8rem; color: var(--paper-dim); display: flex; align-items: baseline; gap: 12px; }
+.cr-timer-pill { font-family: var(--serif); font-style: italic; font-size: 0.82rem; color: var(--paper-faint); background: transparent; border: none; padding: 0; }
+
+/* ═══ Metrics: a reading ledger, values in serif, hairline-separated ════════ */
+.metrics-grid, .cr-scorecard-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    margin: 4px 0 18px 0;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
     overflow: hidden;
+    background: var(--ink-raised);
 }
-.metric-card::after, .cr-score-card::after {
-    content: "";
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--cr-orange), rgba(255, 87, 10, 0));
-    opacity: 0;
-    transition: opacity 0.25s ease;
+.metric-card, .cr-score-card {
+    background: transparent !important;
+    border: none !important;
+    border-right: 1px solid var(--rule-faint) !important;
+    border-radius: 0 !important;
+    padding: 13px 15px !important;
+    box-shadow: none !important;
+    text-align: left;
 }
-.metric-card:hover, .cr-score-card:hover {
-    border-color: rgba(255, 87, 10, 0.35) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 28px rgba(255, 87, 10, 0.12) !important;
+.metric-card:last-child, .cr-score-card:last-child { border-right: none !important; }
+.metric-card::after, .cr-score-card::after { display: none !important; }
+.metric-card:hover, .cr-score-card:hover { background: rgba(241, 236, 225, 0.02) !important; transform: none !important; box-shadow: none !important; }
+.metric-value, .cr-score-val {
+    font-family: var(--serif) !important;
+    font-size: 1.45rem !important; font-weight: 500;
+    color: var(--paper) !important;
+    letter-spacing: -0.01em; line-height: 1.1;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.metric-card:hover::after, .cr-score-card:hover::after { opacity: 0.9; }
-.metric-value, .cr-score-val { font-variant-numeric: tabular-nums; }
+.metric-label, .cr-score-lbl {
+    font-family: var(--sans) !important;
+    font-size: 0.68rem !important; font-weight: 500;
+    color: var(--paper-faint) !important;
+    text-transform: none !important; letter-spacing: 0 !important;
+    margin-top: 5px; line-height: 1.3; white-space: normal;
+}
 
-/* Chatbot canvas — subtle inner gradient + deeper shadow */
+/* ═══ Chat canvas — a reading well; synthesis set in serif ══════════════════ */
 .gradio-chatbot, #aletheia-chatbot {
-    background: linear-gradient(180deg, rgba(14, 16, 24, 0.9), rgba(9, 10, 15, 0.9)) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+    background: var(--ink-sunken) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 4px !important;
+    box-shadow: inset 0 1px 0 rgba(0,0,0,0.25) !important;
 }
+#aletheia-chatbot .message, #aletheia-chatbot .prose, #aletheia-chatbot p, #aletheia-chatbot li {
+    font-family: var(--serif) !important;
+    font-size: 1.02rem !important;
+    line-height: 1.62 !important;
+    color: var(--paper) !important;
+}
+#aletheia-chatbot .prose { max-width: 70ch; }
+#aletheia-chatbot h3 { font-family: var(--serif) !important; color: var(--paper); }
+#aletheia-chatbot code { font-family: var(--sans) !important; font-size: 0.82rem; background: rgba(183,154,99,0.12); color: var(--brass); padding: 1px 5px; border-radius: 2px; }
+#aletheia-chatbot blockquote { border-left: 2px solid var(--oxblood); color: var(--paper-dim); font-style: italic; }
 
-/* Primary button — gradient ember with lift + press feedback */
+/* ── Primary action — an ink button with an oxblood face, no gradient ────── */
 .gr-button-primary, button.primary {
-    background: linear-gradient(180deg, #FF6A24, #FF570A) !important;
-    border: 1px solid rgba(255, 150, 90, 0.35) !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 6px 18px rgba(255, 87, 10, 0.28), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+    background: var(--oxblood) !important;
+    border: 1px solid var(--oxblood) !important;
+    color: #f7efe6 !important;
+    font-family: var(--sans) !important;
+    font-weight: 500 !important; font-size: 0.9rem !important;
+    border-radius: 3px !important;
+    box-shadow: none !important;
+    transition: background 0.18s ease, transform 0.08s ease !important;
+    letter-spacing: 0;
 }
-.gr-button-primary:hover, button.primary:hover {
-    background: linear-gradient(180deg, #FF7A3A, #FF6117) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 10px 26px rgba(255, 87, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+.gr-button-primary:hover, button.primary:hover { background: #b2463e !important; transform: none !important; box-shadow: none !important; }
+.gr-button-primary:active, button.primary:active { transform: translateY(1px) !important; }
+
+.gr-button-secondary {
+    background: transparent !important;
+    border: 1px solid var(--rule) !important;
+    color: var(--paper-dim) !important;
+    font-family: var(--sans) !important; font-size: 0.82rem !important;
+    border-radius: 3px !important;
+    transition: border-color 0.15s ease, color 0.15s ease !important;
 }
-.gr-button-primary:active, button.primary:active { transform: scale(0.98) !important; }
+.gr-button-secondary:hover { background: transparent !important; color: var(--paper) !important; border-color: var(--brass) !important; }
 
-/* Secondary button — press feedback */
-.gr-button-secondary:active { transform: scale(0.98) !important; }
+/* ── Workspace tabs — a reading index, underline marks the place ─────────── */
+#workspace-tabs > .tab-nav, #sources-tabs > .tab-nav {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+    border-radius: 0 !important;
+    padding: 0 !important; gap: 0 !important;
+    margin-bottom: 14px !important;
+}
+#workspace-tabs > .tab-nav button, #sources-tabs > .tab-nav button {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    padding: 8px 15px !important;
+    font-family: var(--sans) !important; font-size: 0.82rem !important; font-weight: 400 !important;
+    color: var(--paper-faint) !important;
+    transition: color 0.15s ease, border-color 0.15s ease !important;
+}
+#workspace-tabs > .tab-nav button:hover, #sources-tabs > .tab-nav button:hover { color: var(--paper) !important; background: transparent !important; }
+#workspace-tabs > .tab-nav button.selected, #sources-tabs > .tab-nav button.selected {
+    color: var(--paper) !important;
+    border-bottom: 2px solid var(--oxblood) !important;
+    background: transparent !important; box-shadow: none !important;
+}
 
-/* Text inputs — focus ring in brand coral */
+/* ── Document catalogue — bibliographic entries, not SaaS cards ──────────── */
+.cr-doc-list { display: flex; flex-direction: column; gap: 0; max-height: 230px; overflow-y: auto; margin-top: 8px; padding-right: 4px; }
+.cr-doc-card {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--rule-faint) !important;
+    border-radius: 0 !important;
+    padding: 10px 2px !important;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: none !important;
+}
+.cr-doc-card:hover { background: rgba(241, 236, 225, 0.02) !important; transform: none !important; box-shadow: none !important; }
+.cr-doc-info { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0 !important; }
+.cr-doc-title { font-family: var(--serif) !important; font-size: 0.98rem; font-weight: 400; color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100% !important; }
+.cr-doc-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cr-doc-empty { font-family: var(--serif); font-style: italic; font-size: 0.92rem; color: var(--paper-faint); padding: 16px; text-align: center; background: transparent; border-radius: 3px; border: 1px dashed var(--rule); }
+
+/* ── Status banners — flat, ink, bordered by meaning ─────────────────────── */
+.cr-status-box { padding: 9px 13px; border-radius: 3px; margin: 8px 0; font-family: var(--sans); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid var(--rule); background: var(--ink-raised); }
+
+.cr-subhead { font-family: var(--sans); font-size: 0.72rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--paper-faint); margin-top: 14px; margin-bottom: 6px; }
+
+/* ── Inputs — paper-well fields with an oxblood focus hairline ───────────── */
 textarea, input[type="text"], .gr-box textarea {
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+    font-family: var(--sans) !important;
+}
+#cr-query-input textarea {
+    background: var(--ink-sunken) !important;
+    border: 1px solid var(--rule) !important;
+    border-radius: 3px !important;
+    font-family: var(--serif) !important;
+    font-size: 1rem !important;
+    color: var(--paper) !important;
+    padding: 13px 15px !important;
 }
 textarea:focus, input[type="text"]:focus {
-    border-color: rgba(255, 87, 10, 0.55) !important;
-    box-shadow: 0 0 0 3px rgba(255, 87, 10, 0.14) !important;
+    border-color: var(--oxblood) !important;
+    box-shadow: 0 0 0 1px var(--oxblood) !important;
     outline: none !important;
 }
 
-/* Workspace tabs — glass tray + animated selected underline */
-#workspace-tabs > .tab-nav {
-    background: rgba(18, 22, 34, 0.6) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-}
-#workspace-tabs > .tab-nav button.selected {
-    background: linear-gradient(180deg, #1b1f2c, #14171f) !important;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-}
+.cr-composer-row { align-items: stretch !important; gap: 10px !important; margin-top: 14px !important; }
+#cr-submit-btn { align-self: stretch !important; min-height: 100% !important; }
+.cr-composer-actions { margin-top: 8px !important; }
 
-/* Document cards — glass + lift on hover */
-.cr-doc-card {
-    background: linear-gradient(180deg, rgba(20, 24, 36, 0.55), rgba(15, 17, 26, 0.55)) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+/* Examples — a "further reading" index, quiet ruled rows */
+#cr-examples .gr-samples-table, #cr-examples table { border: none !important; background: transparent !important; }
+#cr-examples button, #cr-examples td {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid var(--rule-faint) !important;
+    border-radius: 0 !important;
+    color: var(--paper-dim) !important;
+    font-family: var(--serif) !important; font-style: italic; font-size: 0.9rem !important;
+    transition: color 0.15s ease !important;
+    text-align: left !important;
 }
-.cr-doc-card:hover {
-    border-color: rgba(255, 87, 10, 0.3) !important;
-    transform: translateX(2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3) !important;
-}
+#cr-examples button:hover, #cr-examples td:hover { color: var(--oxblood-soft) !important; background: transparent !important; }
 
-/* Refined scrollbars inside document/source panels */
-.cr-doc-list::-webkit-scrollbar { width: 8px; }
+#workspace-tabs .tabitem { min-height: 360px !important; }
+#metrics-panel { margin-bottom: 4px !important; }
+#workspace-tabs .prose, #sources-tabs .prose { font-family: var(--serif) !important; font-size: 0.94rem !important; line-height: 1.6 !important; color: var(--paper-dim); }
+
+/* Evidence provenance list in the source panels */
+#cr-graph-preview iframe, #cr-graph-preview > div { border-radius: 3px !important; border: 1px solid var(--rule) !important; }
+
+/* ── Chat welcome / empty state — an invitation set in serif ─────────────── */
+.cr-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; padding: 32px 30px; gap: 8px; }
+.cr-welcome-glyph {
+    width: 54px; height: 54px; display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; color: var(--oxblood-soft);
+    background: transparent; border: 1px solid var(--rule);
+    margin-bottom: 14px;
+}
+.cr-welcome-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; color: var(--paper); letter-spacing: -0.01em; }
+.cr-welcome-sub { font-family: var(--serif); font-size: 0.98rem; font-style: italic; line-height: 1.55; color: var(--paper-dim); max-width: 46ch; margin: 4px auto 0; }
+.cr-welcome-hints { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 18px; }
+.cr-welcome-pill {
+    font-family: var(--sans); font-size: 0.74rem; font-weight: 400;
+    color: var(--paper-dim); background: transparent;
+    border: 1px solid var(--rule); border-radius: 2px; padding: 5px 11px;
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.cr-pill-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* Scrollbars — thin, brass on hover */
+.cr-doc-list::-webkit-scrollbar { width: 7px; }
 .cr-doc-list::-webkit-scrollbar-track { background: transparent; }
-.cr-doc-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-}
-.cr-doc-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 87, 10, 0.4); }
+.cr-doc-list::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 0; }
+.cr-doc-list::-webkit-scrollbar-thumb:hover { background: var(--brass); }
 
-/* Badges lift slightly on hover for tactility */
-.cr-badge-pill { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.cr-doc-card:hover .cr-badge-orange { box-shadow: 0 0 10px rgba(255, 87, 10, 0.25); }
+#cr-file-uploader { border: 1px dashed var(--rule) !important; border-radius: 3px !important; transition: border-color 0.18s ease !important; }
+#cr-file-uploader:hover { border-color: var(--oxblood) !important; background: transparent !important; }
 
-/* Accordion & file-drop surfaces inherit the glass treatment */
-#cr-file-uploader {
-    border: 1px dashed var(--cr-border) !important;
-    border-radius: 10px !important;
-    transition: border-color 0.2s ease, background 0.2s ease !important;
-}
-#cr-file-uploader:hover {
-    border-color: rgba(255, 87, 10, 0.4) !important;
-    background: rgba(255, 87, 10, 0.03) !important;
-}
-
-/* ── Header contrast fix ──────────────────────────────────────────────────
-   Gradio's prose/opacity styles were dimming the brand text to near-grey.
-   Force crisp, intentional hierarchy. */
-.cr-brand-title { color: #FFFFFF !important; opacity: 1 !important; }
-.cr-brand-title .cr-title-sub { color: #7C8498 !important; }
-.cr-header-desc { color: #AEB7C7 !important; opacity: 1 !important; }
-.cr-header-card .cr-meta-item { color: #C3CBDA !important; }
-.cr-brand-glyph { color: #FF843F !important; }
-
-/* ── Metrics scorecard — five cards balanced in a single responsive row ──── */
-.metrics-grid, .cr-scorecard-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-}
 @media (max-width: 1200px) {
     .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .metric-card:nth-child(3), .cr-score-card:nth-child(3) { border-right: none !important; }
 }
 @media (max-width: 720px) {
     .metrics-grid, .cr-scorecard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-}
-.metric-card, .cr-score-card { padding: 12px 14px !important; }
-.metric-value, .cr-score-val { font-size: 1.3rem !important; }
-
-/* ── Chat canvas welcome / empty state ───────────────────────────────────── */
-.cr-welcome {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    height: 100%;
-    padding: 28px 30px;
-    gap: 6px;
-}
-.cr-welcome-glyph {
-    width: 60px; height: 60px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 16px;
-    color: var(--cr-orange);
-    background: radial-gradient(circle at 50% 35%, rgba(255,87,10,0.14), transparent 70%),
-                linear-gradient(145deg, rgba(27,31,44,0.9), rgba(16,18,26,0.9));
-    border: 1px solid rgba(255, 87, 10, 0.25);
-    box-shadow: 0 8px 26px rgba(255, 87, 10, 0.14), inset 0 1px 0 rgba(255,255,255,0.05);
-    margin-bottom: 12px;
-    animation: crFloat 5s ease-in-out infinite;
-}
-@keyframes crFloat {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-}
-.cr-welcome-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.15rem; font-weight: 700; color: #F8FAFC;
-    letter-spacing: -0.02em;
-}
-.cr-welcome-sub {
-    font-size: 0.85rem; line-height: 1.55; color: #94A3B8;
-    max-width: 440px; margin: 2px auto 0;
-}
-.cr-welcome-hints {
-    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px;
-}
-.cr-welcome-pill {
-    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
-    color: #CBD5E1;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--cr-border);
-    border-radius: 999px; padding: 5px 12px;
+    .cr-brand-title { font-size: 1.4rem !important; }
+    .cr-meta-bar { justify-content: flex-start; margin-top: 10px; }
 }
 
-/* ── Composer (query input + submit) — unified bar ───────────────────────── */
-.cr-composer-row { align-items: stretch !important; gap: 10px !important; margin-top: 12px !important; }
-#cr-query-input textarea {
-    background: rgba(16, 18, 26, 0.75) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 10px !important;
-    font-size: 0.9rem !important;
-    padding: 12px 14px !important;
-}
-#cr-submit-btn { align-self: stretch !important; min-height: 100% !important; font-size: 0.92rem !important; }
-.cr-composer-actions { margin-top: 8px !important; }
-
-/* Examples dataset — turn Gradio's default table into tidy query chips */
-#cr-examples .gr-samples-table, #cr-examples table { border: none !important; background: transparent !important; }
-#cr-examples button, #cr-examples td {
-    background: rgba(20, 24, 36, 0.6) !important;
-    border: 1px solid var(--cr-border) !important;
-    border-radius: 8px !important;
-    color: var(--cr-text-secondary) !important;
-    font-size: 0.8rem !important;
-    transition: all 0.18s ease !important;
-}
-#cr-examples button:hover, #cr-examples td:hover {
-    border-color: rgba(255, 87, 10, 0.4) !important;
-    color: var(--cr-text-primary) !important;
-    background: rgba(255, 87, 10, 0.06) !important;
-}
-
-/* ── Right workspace column — give tab panels real presence ──────────────── */
-#workspace-tabs .tabitem { min-height: 360px !important; }
-#metrics-panel { margin-bottom: 4px !important; }
-
-/* Source markdown panels: readable padding + card feel */
-#workspace-tabs .prose, #sources-tabs .prose { font-size: 0.86rem !important; line-height: 1.55 !important; }
-
-/* Welcome-pill status dots (replaces unsupported glyphs that render as tofu) */
-.cr-welcome-pill { display: inline-flex; align-items: center; gap: 7px; }
-.cr-pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-    box-shadow: 0 0 7px currentColor; }
-
-/* Metric card labels: allow a clean two-line wrap instead of clipping */
-.metric-card, .cr-score-card { padding: 12px 10px !important; min-width: 0 !important; }
-.metric-label, .cr-score-lbl {
-    font-size: 0.6rem !important;
-    line-height: 1.3 !important;
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-    letter-spacing: 0.04em !important;
-}
-.metric-value, .cr-score-val {
-    font-size: 1.18rem !important;
-    white-space: nowrap;
-    overflow: visible;
-}
-
-/* CSS-drawn arrow on the submit button — font-independent, never tofu */
-#cr-submit-btn button, #cr-submit-btn { position: relative; }
-#cr-submit-btn button::after {
-    content: "";
-    display: inline-block;
-    width: 7px; height: 7px;
-    margin-left: 9px;
-    border-top: 2px solid currentColor;
-    border-right: 2px solid currentColor;
-    transform: rotate(45deg) translateY(-1px);
-    transition: transform 0.2s ease;
-    vertical-align: middle;
-}
-#cr-submit-btn button:hover::after { transform: rotate(45deg) translate(2px, -1px); }
-
-/* Keep the header's monospace meta chips from overflowing on mid widths */
-.cr-meta-bar { gap: 8px !important; }
-.cr-meta-item .cr-mono { font-size: 0.68rem !important; }
-
-/* Default-state graph canvas inside the Neo4j tab reads as a feature, not a gap */
-#cr-graph-preview iframe, #cr-graph-preview > div { border-radius: 12px !important; }
-
-/* Respect reduced-motion preferences for accessibility */
+/* Accessibility: honor reduced-motion — kill the one animated mark too */
 @media (prefers-reduced-motion: reduce) {
-    .cr-pulse-dot, .step-active, .cr-welcome-glyph { animation: none !important; }
-    .gr-button-primary, button.primary, .metric-card, .cr-doc-card { transition: none !important; }
+    .step-active::before { animation: none !important; }
+    .gr-button-primary, button.primary, .gr-button-secondary { transition: none !important; }
 }
 """
 
@@ -852,14 +456,14 @@ WELCOME_PLACEHOLDER = (
     "<circle cx='12' cy='12' r='3'/><path d='M3 12h3M18 12h3M12 3v3M12 18v3'/>"
     "<circle cx='12' cy='12' r='9' stroke-opacity='0.35'/></svg>"
     "</div>"
-    "<div class='cr-welcome-title'>Synthesis Stream</div>"
-    "<div class='cr-welcome-sub'>Ask a question about your ingested AI literature. "
-    "Aletheia routes it through the six-node pipeline — retrieval, evidence scoring, "
-    "AttentionRAG compression and a Critic audit — then streams a cited synthesis here.</div>"
+    "<div class='cr-welcome-title'>Begin a reading</div>"
+    "<div class='cr-welcome-sub'>Pose a question about the papers in your library. "
+    "The answer is written here as it comes together — retrieved, weighed, "
+    "compressed, and checked against its sources.</div>"
     "<div class='cr-welcome-hints'>"
-    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#FF570A'></span>Hybrid RRF retrieval</span>"
-    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#3B82F6'></span>100-pt evidence rubric</span>"
-    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#00F2A5'></span>Zero-hallucination Critic</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#a23c35'></span>Searches three ways at once</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#b79a63'></span>Scores the evidence</span>"
+    "<span class='cr-welcome-pill'><span class='cr-pill-dot' style='background:#7fa06a'></span>Checks every claim</span>"
     "</div>"
     "</div>"
 )
@@ -938,17 +542,17 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
     if not s:
         return (
             "<div class='metrics-grid cr-scorecard-grid'>"
-            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Evidence Rubric</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>Compression Ratio</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>0.0s</div><div class='metric-label'>Latency</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#64748B;'>--</div><div class='metric-label'>The Critic QA</div></div>"
-            "<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>$0.00</div><div class='metric-label'>Token Cost</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#8d8676;'>—</div><div class='metric-label'>Evidence score</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#8d8676;'>—</div><div class='metric-label'>Context compression</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#8d8676;'>0.0s</div><div class='metric-label'>Time to answer</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#8d8676;'>—</div><div class='metric-label'>Fact check</div></div>"
+            "<div class='metric-card'><div class='metric-value' style='color:#8d8676;'>$0.00</div><div class='metric-label'>Token cost</div></div>"
             "</div>"
         )
 
     # 1. Evidence Score
     ev_score = s.evaluation.rubric_score if s.evaluation else 0
-    ev_color = "#00F2A5" if ev_score >= 80 else ("#FBBF24" if ev_score >= 50 else "#F43F5E")
+    ev_color = "#7fa06a" if ev_score >= 80 else ("#c9972f" if ev_score >= 50 else "#b6443c")
     ev_text = f"{ev_score}/100"
 
     # 2. Compression Ratio
@@ -962,24 +566,24 @@ def render_metrics_html(state: Any, elapsed: float = 0.0) -> str:
     feedback = s.generation.critic_feedback if s.generation else None
     if not feedback or "approved" in feedback.lower():
         critic_icon = "Approved"
-        critic_color = "#00F2A5"
+        critic_color = "#7fa06a"
     elif "regenerate" in feedback.lower() or "retry" in feedback.lower():
         critic_icon = "Regenerated"
-        critic_color = "#FBBF24"
+        critic_color = "#c9972f"
     else:
         critic_icon = "Passed"
-        critic_color = "#00F2A5"
+        critic_color = "#7fa06a"
 
     # 5. Cost
     cost_text = f"${s.pipeline_cost:.4f}"
 
     return (
         f"<div class='metrics-grid cr-scorecard-grid'>"
-        f"<div class='metric-card'><div class='metric-value' style='color:{ev_color};'>{ev_text}</div><div class='metric-label'>Evidence Rubric</div></div>"
-        f"<div class='metric-card'><div class='metric-value' style='color:#FF570A;'>{comp_text}</div><div class='metric-label'>Compression Ratio</div></div>"
-        f"<div class='metric-card'><div class='metric-value' style='color:#3B82F6;'>{latency_text}</div><div class='metric-label'>Latency</div></div>"
-        f"<div class='metric-card'><div class='metric-value' style='font-size:1.15rem; color:{critic_color};'>{critic_icon}</div><div class='metric-label'>The Critic QA</div></div>"
-        f"<div class='metric-card'><div class='metric-value' style='color:#94A3B8;'>{cost_text}</div><div class='metric-label'>Token Cost</div></div>"
+        f"<div class='metric-card'><div class='metric-value' style='color:{ev_color};'>{ev_text}</div><div class='metric-label'>Evidence score</div></div>"
+        f"<div class='metric-card'><div class='metric-value'>{comp_text}</div><div class='metric-label'>Context compression</div></div>"
+        f"<div class='metric-card'><div class='metric-value'>{latency_text}</div><div class='metric-label'>Time to answer</div></div>"
+        f"<div class='metric-card'><div class='metric-value' style='font-size:1.15rem; color:{critic_color};'>{critic_icon}</div><div class='metric-label'>Fact check</div></div>"
+        f"<div class='metric-card'><div class='metric-value'>{cost_text}</div><div class='metric-label'>Token cost</div></div>"
         f"</div>"
     )
 
@@ -1138,10 +742,12 @@ def render_header_meta_html(catalog: Dict[str, Any] | None = None) -> str:
             catalog = {"total_documents": 0, "total_chunks": 0}
     doc_count = catalog.get("total_documents", 0)
     chunk_count = catalog.get("total_chunks", 0)
+    papers_word = "paper" if doc_count == 1 else "papers"
     return (
         f"<div class='cr-meta-bar'>"
-        f"<div class='cr-meta-item'><span class='cr-pulse-dot'></span> <span>{doc_count} Papers Ingested ({chunk_count} Chunks)</span></div>"
-        f"<div class='cr-meta-item'><span class='cr-mono' style='font-size:0.72rem;'>Kibbs-dibs/MahoRAGa:main</span></div>"
+        f"<div class='cr-meta-item'><span class='cr-pulse-dot'></span> "
+        f"<span>{doc_count} {papers_word} in the library</span></div>"
+        f"<div class='cr-meta-item'><span class='cr-mono'>{chunk_count} indexed passages</span></div>"
         f"<div class='cr-version-pill'>v1.0.0</div>"
         f"</div>"
     )
@@ -1151,8 +757,8 @@ def render_ingest_status_html(res: Dict[str, Any] | None = None) -> str:
     """Render status pill for in-browser PDF ingestion and memory wipe operations."""
     if res is None:
         return (
-            "<div class='cr-status-box' style='background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);'>"
-            "<span style='color:#94A3B8;'>Ready to ingest academic literature. Select or drop PDF files above.</span>"
+            "<div class='cr-status-box'>"
+            "<span style='color:#8d8676;'>Drop a PDF here, or choose a file, to add it to the library.</span>"
             "</div>"
         )
 
@@ -1164,34 +770,34 @@ def render_ingest_status_html(res: Dict[str, Any] | None = None) -> str:
         neo4j_badge = ""
         if neo4j_st == "offline":
             neo4j_badge = (
-                "&nbsp;<span class='cr-badge-pill' style='background:rgba(251,191,36,0.12); color:#FBBF24; border:1px solid rgba(251,191,36,0.3);'>"
-                "⚠️ Neo4j Offline (FAISS & BM25 Active)</span>"
+                "&nbsp;<span class='cr-badge-pill cr-badge-subtle'>"
+                "Graph layer offline — dense &amp; lexical search active</span>"
             )
         elif neo4j_st == "synced":
             neo4j_badge = (
-                "&nbsp;<span class='cr-badge-pill cr-badge-mint'>✓ Neo4j Graph Synced</span>"
+                "&nbsp;<span class='cr-badge-pill cr-badge-mint'>Graph synced</span>"
             )
         return (
-            f"<div class='cr-status-box' style='background:rgba(0,242,165,0.06); border:1px solid rgba(0,242,165,0.25); color:#00F2A5;'>"
-            f"<span>✅ {msg}</span>{neo4j_badge}"
+            f"<div class='cr-status-box' style='border-left:3px solid #7fa06a; color:#aebd9e;'>"
+            f"<span>{msg}</span>{neo4j_badge}"
             f"</div>"
         )
     elif status == "wiped":
         return (
-            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.25); color:#FBBF24;'>"
-            f"<span>🗑️ {msg}</span>"
+            f"<div class='cr-status-box' style='border-left:3px solid #c9972f; color:#d6b878;'>"
+            f"<span>{msg}</span>"
             f"</div>"
         )
     elif status in ("skipped", "no_files"):
         return (
-            f"<div class='cr-status-box' style='background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.25); color:#FBBF24;'>"
-            f"<span>⚠️ {msg}</span>"
+            f"<div class='cr-status-box' style='border-left:3px solid #b79a63; color:#cbc3b4;'>"
+            f"<span>{msg}</span>"
             f"</div>"
         )
     else:
         return (
-            f"<div class='cr-status-box' style='background:rgba(244,63,94,0.06); border:1px solid rgba(244,63,94,0.25); color:#F43F5E;'>"
-            f"<span>❌ {msg}</span>"
+            f"<div class='cr-status-box' style='border-left:3px solid #a23c35; color:#c65a4f;'>"
+            f"<span>{msg}</span>"
             f"</div>"
         )
 
@@ -1428,36 +1034,37 @@ def stream_query_pipeline(
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _build_theme() -> "gr.themes.Base":
-    """Dark design-system theme so Gradio's own components (inputs, buttons,
-    blocks) render on dark surfaces at the source — the custom CSS then layers
-    the CodeRabbit brand aesthetic on top."""
+    """Reading-room base theme so Gradio's own components (inputs, buttons,
+    blocks) render on warm ink surfaces at the source — the custom CSS then
+    layers the bound-journal aesthetic (serif reading type, oxblood accent,
+    brass rules) on top."""
     theme = gr.themes.Base(
-        primary_hue=gr.themes.colors.orange,
-        secondary_hue=gr.themes.colors.blue,
-        neutral_hue=gr.themes.colors.slate,
+        primary_hue=gr.themes.colors.red,
+        secondary_hue=gr.themes.colors.stone,
+        neutral_hue=gr.themes.colors.stone,
         font=(gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"),
-        font_mono=(gr.themes.GoogleFont("JetBrains Mono"), "ui-monospace", "monospace"),
+        font_mono=(gr.themes.GoogleFont("Spectral"), "Georgia", "serif"),
     ).set(
-        body_background_fill="#090a0f",
-        body_background_fill_dark="#090a0f",
-        body_text_color="#F8FAFC",
-        background_fill_primary="rgba(16, 18, 26, 0.75)",
-        background_fill_secondary="rgba(20, 24, 36, 0.6)",
-        block_background_fill="rgba(16, 18, 26, 0.6)",
-        block_border_color="rgba(255, 255, 255, 0.07)",
-        block_label_background_fill="rgba(20, 24, 36, 0.6)",
-        block_label_text_color="#94A3B8",
-        border_color_primary="rgba(255, 255, 255, 0.08)",
-        input_background_fill="rgba(16, 18, 26, 0.85)",
-        input_background_fill_focus="rgba(20, 24, 36, 0.95)",
-        input_border_color="rgba(255, 255, 255, 0.10)",
-        input_border_color_focus="rgba(255, 87, 10, 0.55)",
-        input_placeholder_color="#64748B",
-        button_secondary_background_fill="rgba(20, 24, 36, 0.9)",
-        button_secondary_background_fill_hover="rgba(27, 31, 44, 0.95)",
-        button_secondary_text_color="#CBD5E1",
-        button_secondary_border_color="rgba(255, 255, 255, 0.10)",
-        color_accent_soft="rgba(255, 87, 10, 0.12)",
+        body_background_fill="#15191c",
+        body_background_fill_dark="#15191c",
+        body_text_color="#f1ece1",
+        background_fill_primary="#1c2227",
+        background_fill_secondary="#11161a",
+        block_background_fill="#1c2227",
+        block_border_color="rgba(183, 154, 99, 0.20)",
+        block_label_background_fill="#1c2227",
+        block_label_text_color="#8d8676",
+        border_color_primary="rgba(183, 154, 99, 0.20)",
+        input_background_fill="#11161a",
+        input_background_fill_focus="#11161a",
+        input_border_color="rgba(183, 154, 99, 0.20)",
+        input_border_color_focus="#a23c35",
+        input_placeholder_color="#8d8676",
+        button_secondary_background_fill="transparent",
+        button_secondary_background_fill_hover="transparent",
+        button_secondary_text_color="#cbc3b4",
+        button_secondary_border_color="rgba(183, 154, 99, 0.20)",
+        color_accent_soft="rgba(162, 60, 53, 0.14)",
     )
     return theme
 
@@ -1466,7 +1073,7 @@ def create_ui() -> gr.Blocks:
     """Construct the precision research console web app for Project Aletheia."""
 
     with gr.Blocks(
-        title="Project Aletheia — Autonomous AI Research",
+        title="Aletheia — a reading room for AI research",
         theme=_build_theme(),
     ) as demo:
         # Injected Custom Design System CSS
@@ -1487,10 +1094,12 @@ def create_ui() -> gr.Blocks:
                         </div>
                         <div>
                             <div class="cr-brand-title">
-                                ALETHEIA <span class="cr-title-sub">// AI RESEARCH CONSOLE</span>
+                                Aletheia <span class="cr-title-sub">a reading room for AI research</span>
                             </div>
                             <div class="cr-header-desc">
-                                Autonomous Multi-Agent Literature Intelligence &bull; Three-Layer Global Memory &bull; AttentionRAG 6.3x Pruning &bull; Deterministic Critic QA
+                                Ask a question about your library of papers. Aletheia retrieves the
+                                evidence, compresses it, checks every claim against its source, and
+                                writes back a cited answer.
                             </div>
                         </div>
                     </div>

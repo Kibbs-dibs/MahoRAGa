@@ -36,7 +36,7 @@ def test_ui_instantiation():
     """Verify create_ui returns a valid Gradio Blocks instance."""
     app = create_ui()
     assert isinstance(app, gr.Blocks)
-    assert app.title == "Project Aletheia — Autonomous AI Research"
+    assert app.title == "Aletheia — a reading room for AI research"
 
 
 def test_stepper_html_rendering():
@@ -60,8 +60,8 @@ def test_stepper_html_rendering():
 def test_metrics_html_rendering():
     """Verify metrics panel handles both None and populated states."""
     empty_metrics = render_metrics_html(None)
-    assert "Evidence Rubric" in empty_metrics
-    assert "Compression Ratio" in empty_metrics
+    assert "Evidence score" in empty_metrics
+    assert "Context compression" in empty_metrics
 
     state = AletheiaState(
         query=QueryState(original_query="What is AttentionRAG?"),

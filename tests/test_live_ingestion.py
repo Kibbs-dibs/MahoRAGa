@@ -213,8 +213,8 @@ def test_ui_rendering_helpers():
 
     # Header meta
     header_html = render_header_meta_html(mock_catalog)
-    assert "2 Papers Ingested" in header_html
-    assert "42 Chunks" in header_html
+    assert "2 papers in the library" in header_html
+    assert "42 indexed passages" in header_html
     assert "cr-meta-bar" in header_html
 
     # Catalog list
@@ -227,20 +227,20 @@ def test_ui_rendering_helpers():
     empty_cat_html = render_catalog_html({"documents": []})
     assert "No documents loaded" in empty_cat_html
 
-    # Status pills
+    # Status banners (reading-room style: bordered by meaning, no emoji)
     success_status = render_ingest_status_html({
         "status": "success",
         "message": "Ingested 1 document",
         "neo4j_status": "offline",
     })
-    assert "✅" in success_status
-    assert "Neo4j Offline" in success_status
+    assert "Ingested 1 document" in success_status
+    assert "Graph layer offline" in success_status
 
     wiped_status = render_ingest_status_html({
         "status": "wiped",
         "message": "Memory wiped to clean slate.",
     })
-    assert "🗑️" in wiped_status
+    assert "Memory wiped to clean slate." in wiped_status
 
 
 

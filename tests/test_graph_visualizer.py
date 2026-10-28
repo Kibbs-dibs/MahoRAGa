@@ -71,7 +71,7 @@ def test_generate_interactive_graph_html():
 
     # Empty graph
     empty_html = generate_interactive_graph_html([], [])
-    assert "No Active Knowledge Graph Nodes" in empty_html
+    assert "The graph is empty" in empty_html
 
 
 def test_format_neo4j_markdown_integration():
